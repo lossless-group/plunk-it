@@ -1,16 +1,21 @@
-import type { App, Editor } from 'obsidian';
-import { MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, Editor } from 'obsidian';
 import * as crypto from 'crypto';
 
 interface ContentFarmSettings {
     mySetting: string;
     localLLMPath: string;
     requestBodyTemplate: string;
+    optimizationMode: string;
+    focusMode: string;
+    query: string;
+    history: string[][];
+    systemInstructions: string;
+    stream: boolean;
 }
 
 const DEFAULT_SETTINGS: ContentFarmSettings = {
     mySetting: 'default',
-    localLLMPath: 'http://localhost:11434',
+    localLLMPath: 'http://localhost:3030/api/search',
     requestBodyTemplate: `{
             "chatModel": {
                 "provider": "openai",
@@ -44,8 +49,6 @@ export default class ContentFarmPlugin extends Plugin {
         this.setupStatusBar();
         this.registerCommands();
         this.addSettingTab(new ContentFarmSettingTab(this.app, this));
-
-        this.registerDomEvent(document, 'click', this.handleDocumentClick);
     }
 
     onunload(): void {
@@ -66,6 +69,86 @@ export default class ContentFarmPlugin extends Plugin {
         } catch (error) {
             console.error('Failed to save settings:', error);
             new Notice('Failed to save settings');
+        }
+    }
+
+    private async sendRequest(jsonString: string, editor?: Editor): Promise<string> {
+        try {
+            const response = await fetch(this.settings.localLLMPath, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: jsonString,
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Parse JSON to check if it's a streaming request
+            const requestData = JSON.parse(jsonString);
+            if (requestData.stream && editor) {
+                // Insert a new line and get the position for streaming
+                const cursor = editor.getCursor();
+                const insertPos = { line: cursor.line + 1, ch: 0 };
+                editor.replaceRange('\n', cursor);
+                
+                // Handle streaming response directly to editor
+                const reader = response.body?.getReader();
+                if (!reader) throw new Error('No response body');
+                
+                let result = '';
+                let lastUpdate = Date.now();
+                const updateThreshold = 50; // ms between updates
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = new TextDecoder().decode(value);
+                    result += chunk;
+                    
+                    // Only update the editor at a throttled rate for performance
+                    const now = Date.now();
+                    if (now - lastUpdate >= updateThreshold) {
+                        editor.replaceRange(chunk, insertPos);
+                        lastUpdate = now;
+                    } else {
+                        // For the last chunk, make sure to update
+                        if (done) {
+                            editor.replaceRange(chunk, insertPos);
+                        }
+                    }
+                    
+                    // Move cursor to end of inserted text
+                    const lines = result.split('\n');
+                    const lastLine = lines[lines.length - 1] || ''; // Handle empty last line
+                    editor.setCursor({
+                        line: insertPos.line + Math.max(0, lines.length - 1), // Ensure non-negative line number
+                        ch: lastLine.length
+                    });
+                }
+                
+                // Final update with any remaining content
+                editor.replaceRange(result, insertPos);
+                return result;
+            } else {
+                // Handle non-streaming response
+                const data = await response.json();
+                const result = JSON.stringify(data, null, 2);
+                if (editor) {
+                    editor.replaceRange('\n' + result, editor.getCursor());
+                }
+                return result;
+            }
+        } catch (error) {
+            console.error('Error sending request:', error);
+            const errorMessage = `Error: ${error instanceof Error ? error.message : String(error)}`;
+            if (editor) {
+                editor.replaceRange('\n' + errorMessage, editor.getCursor());
+            }
+            throw new Error(errorMessage);
         }
     }
 
@@ -108,10 +191,22 @@ export default class ContentFarmPlugin extends Plugin {
         this.addCommand({
             id: 'insert-hex-citation',
             name: 'Insert Random Hex Citation',
-            editorCallback: (editor: Editor) => {
-                const hexId = crypto.randomBytes(3)  // Generates 6-character hex string
-                    .toString('hex');  // Keep it lowercase
-                editor.replaceSelection(`[^${hexId}]`);
+            editorCallback: (editor) => {
+                const cursor = editor.getCursor();
+                const line = editor.getLine(cursor.line);
+                const match = line.match(/\[\^([^\]]+)\]/);
+                
+                if (match) {
+                    const citationId = match[1];
+                    editor.replaceRange(
+                        `[^${citationId}]: `,
+                        { line: cursor.line, ch: 0 },
+                        { line: cursor.line, ch: line.length }
+                    );
+                    editor.setCursor(cursor.line, `[^${citationId}]: `.length);
+                } else {
+                    new Notice('No citation found on the current line');
+                }
             }
         });
 
@@ -130,22 +225,80 @@ export default class ContentFarmPlugin extends Plugin {
             }
         });
 
+        this.addCommand({
+            id: 'send-perplexica-request',
+            name: 'Send Perplexica Request',
+            editorCallback: (editor) => {
+                editor.replaceSelection(
+                    '```requestjson--perplexica\n' + 
+                    this.settings.requestBodyTemplate + '\n' +
+                    '```'
+                );
+            }
+        });
+
         // This adds an editor command that can perform some operation on the current editor instanceAdd commentMore actions
         this.addCommand({
-            id: 'sample-editor-command',
-            name: 'Sample editor command',
+            id: 'add-hex-citation',
+            name: 'Add Hex Citation',
+            editorCallback: (editor) => {
+                const hexId = crypto.randomBytes(3).toString('hex');
+                editor.replaceSelection(`[^${hexId}]`);
+            }
+        });
+
+        // Simple curl command
+        this.addCommand({
+            id: 'curl-request',
+            name: 'Curl Request',
             editorCallback: (editor: Editor) => {
-                console.log(editor.getSelection());
-                editor.replaceSelection('Sample Editor Command');
+                const sel = editor.getSelection() || '';
+                const json = sel.match(/```[\s\S]*?```/)?.[0].replace(/```[\s\S]*?\n|```/g, '') || '';
+                if (!json) { new Notice('No code block found'); return; }
+                require('child_process').exec(`echo '${json.replace(/'/g, "'\\''")}' | curl -s -X POST -H 'Content-Type: application/json' -d @- http://localhost:3030/api/search`, (e: any, out: string) => {
+                    if (e) { new Notice('Error: ' + e.message); return; }
+                    editor.replaceRange('\n' + out, editor.getCursor());
+                });
+            }
+        });
+
+        this.addCommand({
+            id: 'send-request-from-selection',
+            name: 'Send Request from Selection',
+            editorCallback: async (editor) => {
+                const selection = editor.getSelection();
+                if (!selection) {
+                    new Notice('Please select a code block with the request JSON');
+                    return;
+                }
+
+                try {
+                    // Extract JSON from code block
+                    const jsonMatch = selection.match(/```(?:requestjson--perplexica)?\n?([\s\S]*?)\n?```/);
+                    if (!jsonMatch || !jsonMatch[1]) {
+                        throw new Error('No valid JSON found in selection');
+                    }
+
+                    const jsonString = jsonMatch[1].trim();
+                    // Log the extracted JSON for debugging
+                    console.log('Extracted JSON:', jsonString);
+                    
+                    // Validate JSON syntax
+                    try {
+                        JSON.parse(jsonString); // Just validate, we'll use the string as-is
+                        await this.sendRequest(jsonString, editor);
+                    } catch (e: unknown) {
+                        const error = e as Error;
+                        console.error('JSON parse error:', error);
+                        throw new Error(`Invalid JSON in code block: ${error.message}`);
+                    }
+                } catch (error) {
+                    console.error('Error processing request:', error);
+                    new Notice(`Error: ${error instanceof Error ? error.message : String(error)}`);
+                }
             }
         });
     }
-
-    private readonly handleDocumentClick = (evt: MouseEvent): void => {
-        if (process.env.NODE_ENV === 'development') {
-            console.debug('Document click:', evt);
-        }
-    };
 }
 
 class ContentFarmModal extends Modal {
