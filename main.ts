@@ -5,12 +5,6 @@ interface ContentFarmSettings {
     mySetting: string;
     localLLMPath: string;
     requestBodyTemplate: string;
-    optimizationMode: string;
-    focusMode: string;
-    query: string;
-    history: string[][];
-    systemInstructions: string;
-    stream: boolean;
 }
 
 const DEFAULT_SETTINGS: ContentFarmSettings = {
@@ -134,13 +128,32 @@ export default class ContentFarmPlugin extends Plugin {
                 editor.replaceRange(result, insertPos);
                 return result;
             } else {
-                // Handle non-streaming response
-                const data = await response.json();
-                const result = JSON.stringify(data, null, 2);
-                if (editor) {
-                    editor.replaceRange('\n' + result, editor.getCursor());
+                if (!editor) {
+                    new Notice('Error: No active editor');
+                    return '';
                 }
-                return result;
+
+                // Simple fetch request with the raw JSON string
+                try {
+                    const response = await fetch(this.settings.localLLMPath, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: jsonString
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.text();
+                    editor.replaceRange('\n' + data, editor.getCursor());
+                    return data;
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                    new Notice(`Error: ${errorMessage}`);
+                    console.error('Request failed:', error);
+                    return '';
+                }
             }
         } catch (error) {
             console.error('Error sending request:', error);
@@ -247,17 +260,72 @@ export default class ContentFarmPlugin extends Plugin {
             }
         });
 
-        // Simple curl command
+        // Simple curl command with NDJSON streaming support
         this.addCommand({
             id: 'curl-request',
             name: 'Curl Request',
             editorCallback: (editor: Editor) => {
                 const sel = editor.getSelection() || '';
                 const json = sel.match(/```[\s\S]*?```/)?.[0].replace(/```[\s\S]*?\n|```/g, '') || '';
-                if (!json) { new Notice('No code block found'); return; }
-                require('child_process').exec(`echo '${json.replace(/'/g, "'\\''")}' | curl -s -X POST -H 'Content-Type: application/json' -d @- http://localhost:3030/api/search`, (e: any, out: string) => {
-                    if (e) { new Notice('Error: ' + e.message); return; }
-                    editor.replaceRange('\n' + out, editor.getCursor());
+                if (!json) { 
+                    new Notice('No request found'); 
+                    return; 
+                }
+
+                // Save current content and add a new line for the response
+                const currentContent = editor.getValue();
+                editor.setValue(currentContent + '\n'); // Add new line for response
+                
+                // Use spawn instead of exec to handle streaming
+                const { spawn } = require('child_process');
+                const echo = spawn('echo', [json]);
+                const curl = spawn('curl', [
+                    '-s',
+                    '-X', 'POST',
+                    '-H', 'Content-Type: application/json',
+                    '--no-buffer',
+                    '--data-binary', '@-',
+                    'http://localhost:3030/api/search'
+                ]);
+
+                let responseText = '';
+                
+                // Pipe echo to curl
+                echo.stdout.pipe(curl.stdin);
+
+                // Handle curl output
+                curl.stdout.on('data', (data: Buffer) => {
+                    const lines = data.toString().split('\n').filter(line => line.trim());
+                    
+                    lines.forEach(line => {
+                        try {
+                            const message = JSON.parse(line);
+                            if (message.type === 'response' && message.data) {
+                                responseText += message.data;
+                                
+                                // Update the editor with the current response
+                                const currentContent = editor.getValue();
+                                const newContent = currentContent + message.data;
+                                editor.setValue(newContent);
+                                
+                                // Move cursor to end of content
+                                const pos = editor.offsetToPos(newContent.length);
+                                editor.setCursor(pos);
+                            }
+                        } catch (e) {
+                            // Ignore JSON parse errors for partial lines
+                        }
+                    });
+                });
+
+                curl.stderr.on('data', (data: Buffer) => {
+                    new Notice(`Error: ${data.toString()}`);
+                });
+
+                curl.on('close', (code: number) => {
+                    if (code !== 0) {
+                        new Notice(`Process exited with code ${code}`);
+                    }
                 });
             }
         });
