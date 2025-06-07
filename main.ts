@@ -43,11 +43,161 @@ export default class ContentFarmPlugin extends Plugin {
         this.setupStatusBar();
         this.registerCommands();
         this.addSettingTab(new ContentFarmSettingTab(this.app, this));
+        this.registerCitationCommands();
     }
 
     onunload(): void {
         this.statusBarItemEl?.remove();
         this.ribbonIconEl?.remove();
+    }
+
+    /**
+     * Register citation-related commands
+     */
+    private registerCitationCommands(): void {
+        console.log('Registering citation commands...');
+        
+        this.addCommand({
+            id: 'convert-all-citations',
+            name: 'Convert All Citations to Hex Format',
+            editorCallback: async (editor: Editor) => {
+                console.log('convert-all-citations command triggered');
+                try {
+                    const content = editor.getValue();
+                    console.log('Processing content length:', content.length);
+                    const result = this.processCitations(content);
+                    
+                    if (result.changed) {
+                        console.log('Citations changed, updating editor');
+                        editor.setValue(result.updatedContent);
+                        new Notice(`Updated ${result.stats.citationsConverted} citations`);
+                    } else {
+                        console.log('No citations needed conversion');
+                        new Notice('No citations needed conversion');
+                    }
+                } catch (error) {
+                    const errorMsg = error instanceof Error ? error.message : String(error);
+                    console.error('Error in convert-all-citations:', error);
+                    new Notice('Error processing citations: ' + errorMsg);
+                }
+            }
+        });
+        
+        console.log('Citation commands registered');
+    }
+
+    /**
+     * Process citations in the content
+     * @param content - The markdown content to process
+     * @returns Object with updated content and statistics
+     */
+    private processCitations(content: string): {
+        updatedContent: string;
+        changed: boolean;
+        stats: {
+            citationsConverted: number;
+        };
+    } {
+        // Extract code blocks to avoid processing them
+        const codeBlocks: { placeholder: string; original: string }[] = [];
+        let processableContent = content;
+        
+        // Extract fenced code blocks
+        processableContent = processableContent.replace(/```[\s\S]*?```/g, (match) => {
+            const placeholder = `__CODE_BLOCK_${crypto.randomBytes(4).toString('hex')}__`;
+            codeBlocks.push({ placeholder, original: match });
+            return placeholder;
+        });
+
+        // Process citations
+        const result = this.convertCitations(processableContent);
+        
+        // Restore code blocks
+        for (const { placeholder, original } of codeBlocks) {
+            result.updatedContent = result.updatedContent.replace(placeholder, original);
+        }
+
+        return result;
+    }
+
+    /**
+     * Generate a random hex string of specified length
+     * @param length - Length of the hex string to generate
+     * @returns Random hex string
+     */
+    private generateHexId(length: number = 6): string {
+        return crypto.randomBytes(Math.ceil(length / 2))
+            .toString('hex')
+            .slice(0, length);
+    }
+
+    /**
+     * Convert all citations to random hex format
+     * @param content - The markdown content to process
+     * @returns Object with updated content and statistics
+     */
+    private convertCitations(content: string): {
+        updatedContent: string;
+        changed: boolean;
+        stats: {
+            citationsConverted: number;
+        };
+    } {
+        let updatedContent = content;
+        let citationsConverted = 0;
+        const citationMap = new Map<string, string>(); // Maps original ID to hex ID
+        
+        // First pass: collect all citations and generate hex IDs
+        const collectCitations = (match: string, prefix: string, id: string) => {
+            if (!citationMap.has(id)) {
+                citationMap.set(id, this.generateHexId());
+            }
+            return match; // Don't modify yet
+        };
+        
+        // Collect numeric citations [^123]
+        updatedContent = updatedContent.replace(/\[\^(\d+)\]/g, collectCitations);
+        
+        // Collect plain numeric citations [123] (only if not part of a link)
+        updatedContent = updatedContent.replace(/\[(\d+)\]/g, (match, id, offset) => {
+            // Only collect if it's not part of a link
+            if (!/\]\([^)]*$/.test(updatedContent.substring(0, offset))) {
+                return collectCitations(match, '', id);
+            }
+            return match;
+        });
+        
+        if (citationMap.size === 0) {
+            return { updatedContent, changed: false, stats: { citationsConverted: 0 } };
+        }
+        
+        // Second pass: replace all collected citations with their hex IDs
+        citationMap.forEach((hexId, originalId) => {
+            // Replace inline citations [^123] or [123]
+            updatedContent = updatedContent.replace(
+                new RegExp(`\\[\\^?${originalId}\\]`, 'g'),
+                ` [^${hexId}]`
+            );
+            
+            // Replace footnote definitions [^123]: or [^hex]:
+            updatedContent = updatedContent.replace(
+                new RegExp(`\\[\\^${originalId}\\](:\\s*)`, 'g'),
+                `[^${hexId}]$1`
+            );
+            
+            citationsConverted++;
+        });
+        
+        // Ensure consistent formatting of all footnote definitions
+        updatedContent = updatedContent.replace(/\[\^([0-9a-f]{6})\]:\s*/gi, (match, hexId) => {
+            return `[^${hexId.toLowerCase()}]: `; // Ensure consistent case
+        });
+        
+        return {
+            updatedContent,
+            changed: citationsConverted > 0,
+            stats: { citationsConverted }
+        };
     }
 
     private async loadSettings(): Promise<void> {
@@ -200,25 +350,55 @@ export default class ContentFarmPlugin extends Plugin {
             }
         });
 
-        // Generate and insert a random hex ID
+        // Command to insert a citation reference and its footnote definition
         this.addCommand({
             id: 'insert-hex-citation',
-            name: 'Insert Random Hex Citation',
-            editorCallback: (editor) => {
-                const cursor = editor.getCursor();
-                const line = editor.getLine(cursor.line);
-                const match = line.match(/\[\^([^\]]+)\]/);
-                
-                if (match) {
-                    const citationId = match[1];
-                    editor.replaceRange(
-                        `[^${citationId}]: `,
-                        { line: cursor.line, ch: 0 },
-                        { line: cursor.line, ch: line.length }
-                    );
-                    editor.setCursor(cursor.line, `[^${citationId}]: `.length);
-                } else {
-                    new Notice('No citation found on the current line');
+            name: 'Insert Random Hex Citation Footnote',
+            editorCallback: (editor: Editor) => {
+                console.log('insert-hex-citation command triggered');
+                try {
+                    const cursor = editor.getCursor();
+                    console.log('Cursor position:', cursor);
+                    
+                    const citationId = this.generateHexId();
+                    console.log('Generated citation ID:', citationId);
+                    
+                    // Get current line content
+                    const lineContent = editor.getLine(cursor.line);
+                    console.log('Current line content:', lineContent);
+                    
+                    // Insert the citation reference at cursor position
+                    const insertPosition = { line: cursor.line, ch: cursor.ch };
+                    editor.replaceRange(`[^${citationId}]`, insertPosition);
+                    
+                    // Add a new line for the footnote definition
+                    const nextLine = cursor.line + 1;
+                    const nextLineContent = editor.getLine(nextLine) || '';
+                    
+                    // Insert a newline if next line is not empty
+                    if (nextLineContent.trim() !== '') {
+                        editor.replaceRange('\n', { line: nextLine, ch: 0 });
+                    }
+                    
+                    // Add the footnote definition
+                    const footnotePosition = { 
+                        line: nextLineContent.trim() === '' ? nextLine : nextLine + 1, 
+                        ch: 0 
+                    };
+                    
+                    editor.replaceRange(`[^${citationId}]: `, footnotePosition);
+                    
+                    // Position cursor at the end of the footnote definition
+                    const newCursorPos = {
+                        line: footnotePosition.line,
+                        ch: `[^${citationId}]: `.length
+                    };
+                    editor.setCursor(newCursorPos);
+                    
+                    console.log('Footnote insertion complete');
+                } catch (error) {
+                    console.error('Error in insert-hex-citation:', error);
+                    new Notice('Error inserting citation: ' + (error instanceof Error ? error.message : String(error)));
                 }
             }
         });
@@ -253,10 +433,42 @@ export default class ContentFarmPlugin extends Plugin {
         // This adds an editor command that can perform some operation on the current editor instanceAdd commentMore actions
         this.addCommand({
             id: 'add-hex-citation',
-            name: 'Add Hex Citation',
-            editorCallback: (editor) => {
-                const hexId = crypto.randomBytes(3).toString('hex');
-                editor.replaceSelection(`[^${hexId}]`);
+            name: 'Add Inline Hex Citation',
+            editorCallback: (editor: Editor) => {
+                console.log('add-hex-citation command triggered');
+                try {
+                    const cursor = editor.getCursor();
+                    console.log('Cursor position:', cursor);
+                    
+                    const hexId = this.generateHexId();
+                    console.log('Generated hex ID:', hexId);
+                    
+                    const selection = editor.getSelection();
+                    console.log('Current selection:', selection);
+                    
+                    if (selection) {
+                        // If text is selected, wrap it with the citation
+                        console.log('Wrapping selection with citation');
+                        editor.replaceSelection(`[^${hexId}] ${selection}`);
+                        
+                        // Position cursor after the inserted content
+                        const newPos = editor.posToOffset(cursor) + hexId.length + 4 + selection.length;
+                        editor.setCursor(editor.offsetToPos(newPos));
+                    } else {
+                        // If no text selected, just insert the citation
+                        console.log('Inserting citation at cursor');
+                        editor.replaceRange(`[^${hexId}]`, cursor);
+                        
+                        // Position cursor after the inserted citation
+                        const newPos = editor.posToOffset(cursor) + hexId.length + 3;
+                        editor.setCursor(editor.offsetToPos(newPos));
+                    }
+                    
+                    console.log('Inline citation insertion complete');
+                } catch (error) {
+                    console.error('Error in add-hex-citation:', error);
+                    new Notice('Error adding citation: ' + (error instanceof Error ? error.message : String(error)));
+                }
             }
         });
 
