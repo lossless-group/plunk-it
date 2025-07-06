@@ -15,3 +15,13 @@ pnpm build
 pnpm dev
 ```
 
+## Make it show up in Obsidian
+
+Create a symbolic link into the plugins directory:
+
+Here is my example, but you will need to use your own path structure:
+```bash
+ln -s /Users/mpstaton/code/lossless-monorepo/cite-wide /Users/mpstaton/content-md/lossless/.obsidian/plugins/cite-wide
+```
+
+

@@ -1,8 +1,62 @@
-/*
-
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
-
-If your plugin does not need CSS, delete this file.
-
-*/
+/* src/styles/citations.css */
+.cite-wide-modal {
+  padding: 20px;
+}
+.cite-wide-modal h3 {
+  margin-top: 0;
+  color: var(--text-normal);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 10px;
+}
+.cite-wide-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+  font-size: 0.9em;
+}
+.cite-wide-table th,
+.cite-wide-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.cite-wide-table th {
+  font-weight: 600;
+  color: var(--text-muted);
+  background-color: var(--background-primary-alt);
+}
+.cite-type-cell {
+  font-weight: 600;
+  color: var(--text-accent);
+  width: 100px;
+}
+.cite-number-cell {
+  width: 80px;
+  text-align: center !important;
+}
+.cite-context-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cite-actions-cell {
+  width: 100px;
+  text-align: right !important;
+}
+.modal-button-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+@media (max-width: 600px) {
+  .cite-wide-table {
+    display: block;
+    overflow-x: auto;
+  }
+  .cite-context-cell {
+    max-width: 150px;
+  }
+}

@@ -27,13 +27,22 @@ const external = [
   ...builtins
 ];
 
+// First, build the CSS file
+await esbuild.build({
+  entryPoints: ['src/styles/citations.css'],
+  bundle: true,
+  minify: isProduction,
+  outfile: 'styles.css',
+  loader: { '.css': 'css' },
+});
+
 const context = await esbuild.context({
   banner: {
     js: banner,
   },
   entryPoints: ['main.ts'],
   bundle: true,
-  external,
+  external: [...external, './styles.css'],
   format: 'cjs',
   platform: 'node',
   target: 'es2022',
@@ -45,6 +54,7 @@ const context = await esbuild.context({
   },
   logLevel: 'info',
   outfile: 'main.js',
+  loader: { '.css': 'text' },
 });
 
 if (isProduction) {
