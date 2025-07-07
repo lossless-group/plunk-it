@@ -91,12 +91,39 @@
     opacity: 0.9;
 }
 
+.cite-wide-instance-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: 0.75rem;
+}
+
+.cite-wide-convert-btn,
+.cite-wide-view-btn {
+    white-space: nowrap;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85em;
+    line-height: 1.4;
+    border-radius: 4px;
+    transition: all 0.1s ease;
+}
+
 .cite-wide-convert-btn {
-    margin-left: 0.5rem;
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: 1px solid var(--interactive-accent-hover);
+}
+
+.cite-wide-convert-btn:hover {
+    background-color: var(--interactive-accent-hover);
 }
 
 .cite-wide-view-btn {
-    margin-left: 0.5rem;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+}
+
+.cite-wide-view-btn:hover {
+    background-color: var(--background-modifier-hover);
 }
 
 .cite-wide-footer {

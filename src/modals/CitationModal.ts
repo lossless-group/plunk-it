@@ -93,7 +93,7 @@ export class CitationModal extends Modal {
         });
 
         // Add each citation instance
-        group.matches.forEach((match) => {
+        group.matches.forEach((match, matchIndex) => {
             const instanceEl = content.createDiv('cite-wide-instance');
             
             // Show line number and preview
@@ -114,14 +114,27 @@ export class CitationModal extends Modal {
                 cls: 'cite-wide-line-preview'
             });
 
-            // Add view button
-            const viewBtn = instanceEl.createEl('button', {
+            // Add view and convert buttons
+            const btnContainer = instanceEl.createDiv('cite-wide-instance-actions');
+            
+            const viewBtn = btnContainer.createEl('button', {
                 text: 'View',
                 cls: 'mod-cta-outline cite-wide-view-btn'
             });
 
-            viewBtn.addEventListener('click', () => {
+            viewBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 this.scrollToLine(match.lineNumber);
+            });
+
+            const convertBtn = btnContainer.createEl('button', {
+                text: 'Convert',
+                cls: 'mod-cta cite-wide-convert-btn'
+            });
+
+            convertBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await this.convertCitationInstance(group, matchIndex);
             });
         });
     }
@@ -142,6 +155,48 @@ export class CitationModal extends Modal {
             }
         } catch (error) {
             console.error('Error converting citation:', error);
+            new Notice('Error converting citation. See console for details.');
+        }
+    }
+
+    private async convertCitationInstance(group: CitationGroup, matchIndex: number) {
+        try {
+            const match = group.matches[matchIndex];
+            if (!match) return;
+
+            // Get current cursor position
+            const cursor = this.editor.getCursor();
+            
+            // Convert just this specific instance
+            const result = citationService.convertCitation(
+                this.content,
+                group.number,
+                undefined, // Let it generate a new hex ID
+                matchIndex // Convert only this specific instance
+            );
+
+            if (result.changed) {
+                // Update the content
+                await this.saveChanges(result.content);
+                
+                // Calculate new cursor position
+                const offsetChange = result.content.length - this.content.length;
+                const newCursor = {
+                    line: cursor.line,
+                    ch: cursor.ch + (match.index <= cursor.ch ? offsetChange : 0)
+                };
+                
+                // Update content and restore cursor
+                this.content = result.content;
+                this.editor.setCursor(newCursor);
+                
+                new Notice(`Converted citation [${group.number}] to hex format`);
+                this.close();
+            } else {
+                new Notice('No changes were made to the document');
+            }
+        } catch (error) {
+            console.error('Error converting citation instance:', error);
             new Notice('Error converting citation. See console for details.');
         }
     }
