@@ -133,12 +133,49 @@ export class CitationService {
             
             return updatedContent;
         } else {
-            // For standard footnotes and references
-            const pattern = matchType === 'footnote' 
-                ? `\\[\\^${targetNumber}\\]` 
-                : `\\[${targetNumber}\\]`;
-            const regex = new RegExp(pattern, 'g');
-            return content.replace(regex, `[^${hexId}]`);
+            // For standard footnotes and references, replace only the specific instance
+            const matches = this.basicCitationMatch(content);
+            const targetMatch = matches.find(m => 
+                m.type === matchType && 
+                m.number === targetNumber &&
+                (matchType === 'perplexity' ? m.lineContent === lineContent : true)
+            );
+
+            if (!targetMatch) {
+                return content;
+            }
+
+            // For reference type with URL, convert to footnote format and add URL to footnotes
+            const citationWithUrlPattern = new RegExp(`\\[${targetNumber}\\]\\(([^)]+)\\)`);
+            if (matchType === 'reference' && citationWithUrlPattern.test(targetMatch.original)) {
+                // Extract the URL from the original citation
+                const urlMatch = targetMatch.original.match(citationWithUrlPattern);
+                const url = urlMatch ? urlMatch[1] : '';
+                
+                // Replace the entire [number](url) with [^hex]
+                const before = content.substring(0, targetMatch.index);
+                const after = content.substring(targetMatch.index + targetMatch.original.length);
+                
+                // Add the URL to the footnotes section if it doesn't exist
+                let updatedContent = `${before}[^${hexId}]${after}`;
+                
+                // Ensure footnotes section exists
+                if (!updatedContent.includes('# Footnotes')) {
+                    updatedContent += '\n\n# Footnotes\n';
+                }
+                
+                // Add the footnote definition if it doesn't exist
+                if (!updatedContent.includes(`[^${hexId}]:`)) {
+                    updatedContent += `\n[^${hexId}]: ${url}`;
+                }
+                
+                return updatedContent;
+            } else {
+                // For other types, just replace the number inside the brackets
+                const before = content.substring(0, targetMatch.index + (matchType === 'footnote' ? 2 : 1));
+                const after = content.substring(targetMatch.index + targetMatch.original.length - 1);
+                return `${before}${hexId}${after}`;
+            }
         }
     }
 

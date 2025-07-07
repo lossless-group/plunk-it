@@ -65,20 +65,40 @@ export class CitationModal extends Modal {
             const [type, number] = key.split(':');
             const groupEl = container.createDiv({ cls: 'citation-group' });
 
-            // Create header with toggle functionality
+            // Create header with toggle functionality and actions
             const header = groupEl.createDiv({ cls: 'citation-group-header' });
-            header.createEl('h3', { 
-                text: `${type === 'footnote' ? 'Footnote' : 'Citation'} [${number}] (${group.matches.length} occurrences)` 
+            
+            // Header content with integrated To Hex button
+            const headerContent = header.createDiv({ cls: 'citation-group-header-content' });
+            const headerTitle = headerContent.createEl('h3');
+            
+            // Add the title text
+            headerTitle.createSpan({ 
+                text: `${type === 'footnote' ? 'Footnote' : 'Citation'} [${number}] (${group.matches.length} occurrences)`
             });
-
+            
+            // Add Convert to Hex button next to the title
+            const convertButton = headerTitle.createEl('button', {
+                text: 'To Hex',
+                cls: 'mod-cta',
+                attr: { 'data-action': 'convert-all-group' }
+            });
+            convertButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const firstMatch = group.matches[0];
+                if (firstMatch) {
+                    this.convertCitationToHex(firstMatch);
+                }
+            });
+            
             // Create content container (initially hidden)
             const content = groupEl.createDiv({ cls: 'citation-group-content' });
-
-            // Add toggle functionality
+            
+            // Add toggle functionality to header
             header.onclick = () => {
                 content.style.display = content.style.display === 'none' ? 'block' : 'none';
             };
-
+            
             // Add each citation context
             group.matches.forEach((match: CitationMatch) => {
                 const contextEl = content.createDiv({ cls: 'citation-context' });
@@ -89,20 +109,13 @@ export class CitationModal extends Modal {
 
                 // Add action buttons
                 const actions = contextEl.createDiv({ cls: 'citation-actions' });
-
+                
                 // View button
                 actions.createEl('button', {
                     text: 'View',
                     cls: 'mod-cta',
                     attr: { 'data-action': 'view' }
                 }).addEventListener('click', () => this.scrollToCitation(match));
-
-                // Convert to Hex button
-                actions.createEl('button', {
-                    text: 'To Hex',
-                    cls: 'mod-cta',
-                    attr: { 'data-action': 'convert' }
-                }).addEventListener('click', () => this.convertCitationToHex(match));
             });
         });
 
