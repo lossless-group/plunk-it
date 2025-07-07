@@ -26,19 +26,102 @@ export class CitationService {
      * @param targetCitation - Optional specific citation to convert (e.g., '[1]' or '[^1]')
      * @returns Object with updated content and statistics
      */
+    /**
+     * Basic citation matching function similar to CitationModal's implementation
+     */
+    private basicCitationMatch(content: string): Array<{type: string, number: string, index: number}> {
+        const matches: Array<{type: string, number: string, index: number}> = [];
+        
+        // Find footnote references [^1]
+        const footnoteRegex = /\[\^(\d+)\]/g;
+        let footnoteMatch: RegExpExecArray | null;
+        while ((footnoteMatch = footnoteRegex.exec(content)) !== null) {
+            const number = footnoteMatch[1];
+            if (number) {
+                matches.push({
+                    type: 'footnote',
+                    number,
+                    index: footnoteMatch.index
+                });
+            }
+        }
+        
+        // Find citations [1] (but not links [text](url))
+        const citationRegex = /\[(\d+)\]/g;
+        let citationMatch: RegExpExecArray | null;
+        while ((citationMatch = citationRegex.exec(content)) !== null) {
+            const number = citationMatch[1];
+            if (number && !/\]\([^)]*$/.test(content.substring(0, citationMatch.index))) {
+                matches.push({
+                    type: 'citation',
+                    number,
+                    index: citationMatch.index
+                });
+            }
+        }
+        
+        // Sort by position in document
+        matches.sort((a, b) => a.index - b.index);
+        return matches;
+    }
+    
+    /**
+     * Basic citation replacement function
+     */
+    private basicMatchAndReplace(content: string, targetNumber: string, hexId: string, isFootnote: boolean): string {
+        const pattern = isFootnote ? `\\[\\^${targetNumber}\\]` : `\\[${targetNumber}\\]`;
+        const regex = new RegExp(pattern, 'g');
+        return content.replace(regex, `[^${hexId}]`);
+    }
+
     public convertCitations(content: string, targetCitation?: string): CitationConversionResult {
         if (!content) {
             console.error('Content is empty or undefined');
             return { updatedContent: content || '', changed: false, stats: { citationsConverted: 0 } };
         }
 
+        // Use the basic matcher implementation
+        const basicMatches = this.basicCitationMatch(content);
+        if (basicMatches.length === 0) {
+            return { updatedContent: content, changed: false, stats: { citationsConverted: 0 } };
+        }
+
+        console.log(`Found ${basicMatches.length} basic citation matches`);
         let updatedContent = content;
+        const processedNumbers = new Set<string>();
         let citationsConverted = 0;
-        
-        // If we have a target citation, we'll handle it specifically
-        if (targetCitation) {
-            console.warn('Targeted citation conversion not yet implemented for URL-based citations');
-            return { updatedContent, changed: false, stats: { citationsConverted: 0 } };
+
+        // Process each match in reverse order to avoid position shifting issues
+        for (let i = basicMatches.length - 1; i >= 0; i--) {
+            const match = basicMatches[i];
+            if (!match) continue;
+            
+            if (targetCitation && match.number !== targetCitation) {
+                continue;
+            }
+
+            // Skip if we've already processed this number
+            if (processedNumbers.has(match.number)) {
+                continue;
+            }
+            processedNumbers.add(match.number);
+
+            try {
+                // Generate a hex ID for this citation
+                const hexId = crypto.randomBytes(4).toString('hex');
+                
+                // Replace all occurrences of this citation
+                updatedContent = this.basicMatchAndReplace(
+                    updatedContent, 
+                    match.number, 
+                    hexId, 
+                    match.type === 'footnote'
+                );
+                
+                citationsConverted++;
+            } catch (error) {
+                console.error(`Error processing citation ${match.number}:`, error);
+            }
         }
         
         try {
@@ -47,7 +130,8 @@ export class CitationService {
             const hexToUrlMap = new Map<string, string>();
             
             // First pass: Find all [number](url) patterns and replace with [^hex]
-            updatedContent = updatedContent.replace(/\[(\d+)\]\(([^)]+)\)/g, (match, number, url) => {
+            // This handles citations that are adjacent to text or punctuation
+            updatedContent = updatedContent.replace(/([^\s\[]|^)\[(\d+)\]\(([^)]+)\)/g, (_match, prefix, _number, url) => {
                 let hexId: string;
                 
                 // If we've seen this URL before, use the existing hex ID
@@ -61,7 +145,9 @@ export class CitationService {
                 }
                 
                 citationsConverted++;
-                return ` [^${hexId}]`; // Add space before citation for better formatting
+                // Add a space before the citation if it's not at the start of the line
+                const space = prefix === '' ? '' : ' ';
+                return `${prefix}${space}[^${hexId}]`;
             });
             
             // If we found any citations, add the footnotes section
