@@ -1,11 +1,13 @@
 // cite-wide/src/services/citationService.ts
 import crypto from 'crypto';
 
+export type CitationType = 'perplexity' | 'reference' | 'footnote' | 'numeric';
+
 export interface CitationMatch {
-    type: 'perplexity' | 'reference' | 'footnote';
+    type: CitationType;
     number: string;
     original: string;
-    url: string | undefined;  // Explicitly allow undefined
+    url?: string | undefined;  // Explicitly optional URL property
     index: number;
     lineContent: string;
     lineNumber: number;
@@ -14,7 +16,7 @@ export interface CitationMatch {
 export interface CitationGroup {
     number: string;
     matches: CitationMatch[];
-    url: string | undefined;  // Explicitly allow undefined
+    url?: string;  // Optional URL property
 }
 
 export interface ConversionResult {
@@ -27,6 +29,51 @@ export interface ConversionResult {
 
 export class CitationService {
     /**
+     * Find the reference source text for a given citation number in footnotes or references section
+     * @param content The full content to search in
+     * @param number The citation number to find
+     * @returns The reference text or undefined if not found
+     */
+    private findReferenceSourceInFootnotes(content: string, number: string): string | undefined {
+        // Split content into lines and find the References/Footnotes section
+        const lines = content.split('\n');
+        let inReferencesSection = false;
+        
+        // Look for the References or Footnotes section
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i]?.trim() || '';
+            
+            // Check for section headers
+            if (line.match(/^##?\s+(References|Footnotes)\s*$/i)) {
+                inReferencesSection = true;
+                continue;
+            }
+            
+            // If we're in the references section, look for numbered items
+            if (inReferencesSection) {
+                // Skip empty lines or other section headers
+                if (!line || line.startsWith('##')) {
+                    if (line.match(/^##?\s+[^\s]+/)) {
+                        // Found another section, stop searching
+                        break;
+                    }
+                    continue;
+                }
+                
+                // Check for numbered list items (e.g., "1. " or "1) ")
+                const match = line.match(/^(\d+)[.)]\s+(.+)/);
+                if (match && match[1] && match[2]) {
+                    if (match[1] === number) {
+                        return match[2].trim();
+                    }
+                }
+            }
+        }
+        
+        return undefined;
+    }
+
+    /**
      * Find all citations in the content
      */
     public findCitations(content: string): CitationGroup[] {
@@ -34,74 +81,125 @@ export class CitationService {
         const lines = content.split('\n');
         let currentPosition = 0;
         
-        for (const line of lines) {
+        // Find all reference numbers and their sources
+        const referenceNumbers = new Set<string>();
+        const referenceSources = new Map<string, string>();
+        
+        // Collect all citation numbers that have reference sources
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i]?.trim() || '';
+            const citationMatch = line.match(/\[(\d+)\]/g);
+            if (citationMatch) {
+                citationMatch.forEach(match => {
+                    const number = match.replace(/[\[\]]/g, '');
+                    referenceNumbers.add(number);
+                });
+            }
+        }
+        
+        for (let lineNumber = 0; lineNumber < lines.length; lineNumber++) {
+            const line = lines[lineNumber] || '';
             // 1. Check for Perplexity-style footnotes (e.g., "1. [https://...]")
             const perplexityMatch = line.match(/^(\d+)\.\s+\[(https?:\/\/[^\]]+)\]/);
-            if (perplexityMatch && perplexityMatch[1] && perplexityMatch[0]) {
-                matches.push({
-                    type: 'perplexity',
-                    number: perplexityMatch[1],
+            if (perplexityMatch?.[1] && perplexityMatch[0]) {
+                const matchNumber = perplexityMatch[1];
+                const url = referenceSources.get(matchNumber);
+                // Create base match without URL
+                const matchBase = {
+                    type: 'perplexity' as const,
+                    number: matchNumber,
                     original: perplexityMatch[0],
-                    url: undefined, // URL will be set in the group
                     index: currentPosition + line.indexOf(perplexityMatch[0]),
                     lineContent: line,
-                    lineNumber: 0 // Will be set in the group
-                });
+                    lineNumber: lineNumber
+                };
+                
+                // Add URL if it exists
+                const match: CitationMatch = url 
+                    ? { ...matchBase, url }
+                    : matchBase;
+                matches.push(match);
             }
             
             // 2. Find standard footnote references [^1]
             const footnoteRegex = /\[\^(\d+)\]/g;
             let footnoteMatch;
             while ((footnoteMatch = footnoteRegex.exec(line)) !== null) {
-                if (footnoteMatch[1] && footnoteMatch[0]) {
-                    matches.push({
-                        type: 'footnote',
+                if (footnoteMatch[1]) {
+                    // Create base match without URL
+                    const matchBase = {
+                        type: 'footnote' as const,
                         number: footnoteMatch[1],
                         original: footnoteMatch[0],
-                        url: undefined,
                         index: currentPosition + (footnoteMatch.index || 0),
                         lineContent: line,
-                        lineNumber: 0 // Will be set in the group
-                    });
+                        lineNumber: lineNumber
+                    };
+                    matches.push(matchBase);
                 }
             }
-            
-            // 3. Find standard citations [1] (but not links [text](url))
+
+            // 3. Find standard numeric citations [1]
             const citationRegex = /\[(\d+)\]/g;
             let citationMatch;
             while ((citationMatch = citationRegex.exec(line)) !== null) {
-                // Skip if it's part of a markdown link
-                if (citationMatch[1] && citationMatch[0] && 
-                    !/\]\([^)]*$/.test(line.substring(0, citationMatch.index || 0))) {
-                    matches.push({
-                        type: 'reference',
-                        number: citationMatch[1],
-                        original: citationMatch[0],
-                        url: undefined,
-                        index: currentPosition + (citationMatch.index || 0),
-                        lineContent: line,
-                        lineNumber: 0 // Will be set in the group
-                    });
+                // Skip if this is part of a markdown link [text](url)
+                const nextChar = line[citationMatch.index + citationMatch[0].length];
+                if (nextChar !== '(') {
+                    // Create base match without URL
+                    if (citationMatch[1]) {  // Ensure we have a valid number
+                        const matchBase = {
+                            type: 'numeric' as const,
+                            number: citationMatch[1],
+                            original: citationMatch[0],
+                            index: currentPosition + (citationMatch.index || 0),
+                            lineContent: line,
+                            lineNumber: lineNumber
+                        };
+                        matches.push(matchBase);
+                    }
                 }
             }
-            
+
             // Update position for the next line
             currentPosition += line.length + 1; // +1 for the newline character
         }
 
-        // Group matches by number
+        // Group matches by number and attach reference sources
         const groups = new Map<string, CitationGroup>();
         
+        // Add reference sources to the groups and ensure they're valid strings
+        referenceNumbers.forEach(number => {
+            const source = this.findReferenceSourceInFootnotes(content, number);
+            if (source && typeof source === 'string' && source.trim() !== '') {
+                referenceSources.set(number, source);
+            }
+        });
+        
+        // Sort matches by line number for better grouping
+        matches.sort((a, b) => a.lineNumber - b.lineNumber);
+        
+        // Create citation groups with proper URL handling
         matches.forEach(match => {
             if (!groups.has(match.number)) {
+                const groupUrl = referenceSources.get(match.number);
                 const newGroup: CitationGroup = {
                     number: match.number,
-                    matches: [],
-                    url: match.url
+                    matches: []
                 };
+                if (groupUrl) {
+                    newGroup.url = groupUrl;
+                }
                 groups.set(match.number, newGroup);
             }
-            groups.get(match.number)?.matches.push(match);
+            
+            // Create a clean match object without undefined URL
+            const cleanMatch: CitationMatch = {
+                ...match,
+                url: match.url ? String(match.url) : undefined
+            };
+            
+            groups.get(match.number)?.matches.push(cleanMatch);
         });
 
         return Array.from(groups.values());
