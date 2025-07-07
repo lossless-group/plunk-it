@@ -21,64 +21,86 @@ export class CitationService {
     }
 
     /**
-     * Convert all citations to random hex format
+     * Convert citations to random hex format
      * @param content - The markdown content to process
+     * @param targetCitation - Optional specific citation to convert (e.g., '[1]' or '[^1]')
      * @returns Object with updated content and statistics
      */
-    public convertCitations(content: string): CitationConversionResult {
+    public convertCitations(content: string, targetCitation?: string): CitationConversionResult {
+        if (!content) {
+            console.error('Content is empty or undefined');
+            return { updatedContent: content || '', changed: false, stats: { citationsConverted: 0 } };
+        }
+
         let updatedContent = content;
         let citationsConverted = 0;
-        const citationMap = new Map<string, string>(); // Maps original ID to hex ID
         
-        // First pass: collect all citations and generate hex IDs
-        const collectCitations = (match: string, _prefix: string, id: string) => {
-            // Only process if it's a numeric ID and we haven't seen it before
-            if (/^\d+$/.test(id) && !citationMap.has(id)) {
-                citationMap.set(id, this.generateHexId());
-            }
-            return match; // Don't modify yet
-        };
+        // If we have a target citation, we'll handle it specifically
+        if (targetCitation) {
+            console.warn('Targeted citation conversion not yet implemented for URL-based citations');
+            return { updatedContent, changed: false, stats: { citationsConverted: 0 } };
+        }
         
-        // Collect numeric citations [^1]
-        updatedContent = updatedContent.replace(/\[\^(\d+)\]/g, collectCitations);
-        
-        // Collect plain numeric citations [1] (only if not part of a link)
-        updatedContent = updatedContent.replace(/\[(\d+)\]/g, (match, id, offset) => {
-            // Only collect if it's a single digit and not part of a link
-            if (/^\d+$/.test(id) && !/\]\([^)]*$/.test(updatedContent.substring(0, offset))) {
-                return collectCitations(match, '', id);
-            }
-            return match;
-        });
-
-        // Second pass: replace all collected citations with their hex equivalents
-        citationMap.forEach((hexId, originalId) => {
-            try {
-                // Replace [^1] style citations
-                updatedContent = updatedContent.replace(
-                    new RegExp(`\\[\\^${originalId}\\]`, 'g'), 
-                    `[^${hexId}]`
-                );
+        try {
+            // Map to store URL to hex ID mappings
+            const urlToHexMap = new Map<string, string>();
+            const hexToUrlMap = new Map<string, string>();
+            
+            // First pass: Find all [number](url) patterns and replace with [^hex]
+            updatedContent = updatedContent.replace(/\[(\d+)\]\(([^)]+)\)/g, (match, number, url) => {
+                let hexId: string;
                 
-                // Replace [1] style citations (only if not part of a link)
-                updatedContent = updatedContent.replace(
-                    new RegExp(`(^|[^\\])\\[${originalId}\\]`, 'g'),
-                    `$1[^${hexId}]`
-                );
+                // If we've seen this URL before, use the existing hex ID
+                if (urlToHexMap.has(url)) {
+                    hexId = urlToHexMap.get(url)!;
+                } else {
+                    // Generate a new hex ID for this URL
+                    hexId = this.generateHexId();
+                    urlToHexMap.set(url, hexId);
+                    hexToUrlMap.set(hexId, url);
+                }
                 
                 citationsConverted++;
-            } catch (error) {
-                console.error(`Error processing citation ${originalId}:`, error);
+                return ` [^${hexId}]`; // Add space before citation for better formatting
+            });
+            
+            // If we found any citations, add the footnotes section
+            if (citationsConverted > 0) {
+                // Check if footnotes section already exists
+                const hasFootnotesSection = /\n#+\s*Footnotes\s*\n/.test(updatedContent);
+                
+                // If no footnotes section exists, add one
+                if (!hasFootnotesSection) {
+                    updatedContent += '\n\n# Footnotes\n';
+                } else {
+                    updatedContent += '\n';
+                }
+                
+                // Add all footnote definitions
+                hexToUrlMap.forEach((url, hexId) => {
+                    // Check if this footnote is already defined
+                    const footnoteRegex = new RegExp(`\\[\\^${hexId}\\]:.*`, 'g');
+                    if (!footnoteRegex.test(updatedContent)) {
+                        updatedContent += `\n[^${hexId}]: ${url}`;
+                    }
+                });
             }
-        });
 
-        return {
-            updatedContent,
-            changed: citationsConverted > 0,
-            stats: {
-                citationsConverted
-            }
-        };
+            return {
+                updatedContent,
+                changed: citationsConverted > 0,
+                stats: {
+                    citationsConverted
+                }
+            };
+        } catch (error) {
+            console.error('Error processing citations:', error);
+            return { 
+                updatedContent: content, // Return original content on error
+                changed: false, 
+                stats: { citationsConverted: 0 } 
+            };
+        }
     }
 }
 

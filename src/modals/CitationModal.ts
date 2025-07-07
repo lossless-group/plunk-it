@@ -175,55 +175,55 @@ export class CitationModal extends Modal {
 
     private async convertCitationToHex(match: CitationMatch) {
         try {
+            console.log('Starting citation conversion for:', match);
+            
             const content = this.editor.getValue();
-            const lines = content.split('\n');
-            let updated = false;
             
-            // Generate hex ID for this citation
-            const hexId = citationService.generateHexId(parseInt(match.number));
+            // Use the citation service to handle the conversion
+            const result = citationService.convertCitations(
+                content,
+                match.type === 'footnote' ? `[^${match.number}]` : `[${match.number}]`
+            );
             
-            // Replace all instances of this citation
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                if (!line) continue;
+            if (result.changed) {
+                console.log('Changes detected, updating file...');
                 
-                // Handle footnote references [^1]
-                if (match.type === 'footnote') {
-                    const footnoteRef = new RegExp(`\\[\\^${match.number}\\]`, 'g');
-                    if (footnoteRef.test(line)) {
-                        lines[i] = line.replace(footnoteRef, `[^${hexId}]`);
-                        updated = true;
-                    }
-                    
-                    // Also check for footnote definitions
-                    const footnoteDef = new RegExp(`^\\[\\^${match.number}\\]:`);
-                    if (footnoteDef.test(line.trim())) {
-                        lines[i] = line.replace(`[^${match.number}]:`, `[^${hexId}]:`);
-                        updated = true;
-                    }
-                } 
-                // Handle regular citations [1]
-                else {
-                    const citationRegex = new RegExp(`\\[${match.number}\\]`, 'g');
-                    if (citationRegex.test(line)) {
-                        // Skip if it's part of a markdown link
-                        if (!/\]\([^)]*$/.test(line.substring(0, line.indexOf(`[${match.number}]`)))) {
-                            lines[i] = line.replace(citationRegex, `[${hexId}]`);
-                            updated = true;
-                        }
-                    }
+                // Get the current file
+                const activeFile = this.app.workspace.getActiveFile();
+                if (!activeFile) {
+                    const msg = 'No active file found';
+                    console.error(msg);
+                    new Notice(msg);
+                    return;
                 }
-            }
-            
-            if (updated) {
-                // Update the editor content
-                this.editor.setValue(lines.join('\n'));
-                new Notice(`Converted citation [${match.number}] to hex format`);
+                
+                console.log('New content prepared, saving to file...');
+                
+                try {
+                    await this.app.vault.modify(activeFile, result.updatedContent);
+                    console.log('File saved successfully');
+                    
+                    // Update the editor content to reflect the changes
+                    this.editor.setValue(result.updatedContent);
+                    new Notice(`✅ Successfully converted citation [${match.number}]`);
+                } catch (error) {
+                    const saveError = error as Error;
+                    const errorMsg = `Failed to save file: ${saveError.message || 'Unknown error'}`;
+                    console.error('Save error:', saveError);
+                    new Notice(`❌ ${errorMsg}`);
+                }
+            } else {
+                console.log('No changes were made to the file');
+                new Notice(`No instances of [${match.number}] found to convert`);
             }
             
         } catch (error) {
-            console.error('Error converting citation to hex:', error);
-            new Notice('Error converting citation to hex. Check console for details.');
+            const conversionError = error as Error;
+            const errorMsg = `Error converting citation: ${conversionError.message || 'Unknown error'}`;
+            console.error('Conversion error:', conversionError);
+            new Notice(`❌ ${errorMsg}`);
+        } finally {
+            console.log('Citation conversion completed');
         }
     }
 
