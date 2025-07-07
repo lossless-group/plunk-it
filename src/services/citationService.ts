@@ -108,6 +108,26 @@ export class CitationService {
     }
 
     /**
+     * Preprocess content to clean up URL links after citations
+     * This handles cases like [1][text](url) or [1](url) and removes the URL part
+     */
+    private preprocessCitations(content: string): string {
+        // First pass: Handle [number][text](url) pattern
+        let result = content.replace(
+            /\[(\d+)\]\s*\[[^\]]+\]\([^)]+\)/g,
+            '[$1]'  // Keep just the [number] part
+        );
+
+        // Second pass: Handle [number](url) pattern
+        result = result.replace(
+            /\[(\d+)\]\([^)]+\)/g,
+            '[$1]'  // Keep just the [number] part
+        );
+
+        return result;
+    }
+
+    /**
      * Convert a specific citation to hex format
      */
     public convertCitation(
@@ -116,16 +136,18 @@ export class CitationService {
         hexId?: string,
         matchIndex: number = -1
     ): ConversionResult {
-        const groups = this.findCitations(content);
+        // First preprocess the content to clean up any URL links
+        const preprocessedContent = this.preprocessCitations(content);
+        const groups = this.findCitations(preprocessedContent);
         const group = groups.find(g => g.number === citationNumber);
         
         if (!group) {
-            return { content, changed: false, stats: { citationsConverted: 0 } };
+            return { content: preprocessedContent, changed: false, stats: { citationsConverted: 0 } };
         }
 
         // Generate or use provided hex ID
         const targetHexId = hexId || this.generateHexId();
-        let updatedContent = content;
+        let updatedContent = preprocessedContent;
         let citationsConverted = 0;
         const url = group.matches[0]?.url;
 
@@ -174,6 +196,8 @@ export class CitationService {
                 );
             }
         }
+
+        // No need for post-processing since we handle URLs in preprocess step
 
         return {
             content: updatedContent,
