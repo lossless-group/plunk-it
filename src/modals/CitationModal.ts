@@ -1,8 +1,18 @@
-import { App, Modal, Notice, Editor } from 'obsidian';
-import { citationService } from '../services/citationService';
+import { App, Modal, Notice, Editor, TFile } from 'obsidian';
+import { citationService, type CitationConversionResult } from '../services/citationService';
 
-export interface CitationMatch {
-    type: 'footnote' | 'reference';
+// Extend the Obsidian Modal interface to include contentEl
+declare module 'obsidian' {
+    interface Modal {
+        contentEl: HTMLElement;
+    }
+}
+
+/**
+ * Represents a single citation match in the document
+ */
+interface CitationMatch {
+    type: 'footnote' | 'reference' | 'perplexity';
     original: string;
     number: string;
     position: number;
@@ -10,220 +20,232 @@ export interface CitationMatch {
     lineContent: string;
 }
 
+interface CitationGroup {
+    type: string;
+    number: string;
+    matches: CitationMatch[];
+}
+
+/**
+ * Modal for displaying and managing citations in the current document
+ */
 export class CitationModal extends Modal {
     private matches: CitationMatch[] = [];
-    private content: string = '';
+    private editor: Editor;
+    private content: string;
 
-    constructor(app: App, private editor: Editor) {
+    constructor(app: App, editor: Editor) {
         super(app);
+        this.editor = editor;
+        this.content = editor.getValue();
     }
 
-    async onOpen() {
+    async onOpen(): Promise<void> {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('cite-wide-modal');
 
-        // Get current editor content
-        this.content = this.editor.getValue();
-        
-        // Find all citations in the content
+        // Find all citations in the document
         this.findCitations();
 
+        // If no citations found, show a message
         if (this.matches.length === 0) {
-            contentEl.createEl('h3', { text: 'No Citations Found' });
-            contentEl.createEl('p', { 
-                text: 'No footnote references [^1] or citations [1] were found in the current note.' 
-            });
+            contentEl.createEl('p', { text: 'No citations found in the current document.' });
             return;
         }
 
-        // Create header
-        contentEl.createEl('h3', { text: 'Citations in Current Note' });
-        
-        // Create table
-        const table = contentEl.createEl('table', { cls: 'cite-wide-table' });
-        const thead = table.createEl('thead');
-        const headerRow = thead.createEl('tr');
-        headerRow.createEl('th', { text: 'Type' });
-        headerRow.createEl('th', { text: 'Number' });
-        headerRow.createEl('th', { text: 'Context' });
-        headerRow.createEl('th', { text: 'Actions' });
+        // Group citations by type and number
+        const groupedCitations = this.groupCitations();
 
-        const tbody = table.createEl('tbody');
-        
-        // Add each citation to the table
-        this.matches.forEach((match) => {
-            const row = tbody.createEl('tr');
-            
-            // Type
-            row.createEl('td', { 
-                text: match.type === 'footnote' ? 'Footnote' : 'Citation',
-                cls: 'cite-type-cell'
+        // Create a container for the citation groups
+        const container = contentEl.createDiv({ cls: 'citation-groups' });
+
+        // Render each citation group
+        Object.entries(groupedCitations).forEach(([key, group]) => {
+            const [type, number] = key.split(':');
+            const groupEl = container.createDiv({ cls: 'citation-group' });
+
+            // Create header with toggle functionality
+            const header = groupEl.createDiv({ cls: 'citation-group-header' });
+            header.createEl('h3', { 
+                text: `${type === 'footnote' ? 'Footnote' : 'Citation'} [${number}] (${group.matches.length} occurrences)` 
             });
-            
-            // Number
-            row.createEl('td', { 
-                text: match.number,
-                cls: 'cite-number-cell'
-            });
-            
-            // Context (first 30 chars of line)
-            const context = match.lineContent?.trim() || '';
-            row.createEl('td', { 
-                text: context.length > 30 ? context.substring(0, 30) + '...' : context,
-                cls: 'cite-context-cell',
-                title: context // Show full line on hover
-            });
-            
-            // Actions
-            const actionsCell = row.createEl('td', { cls: 'cite-actions-cell' });
-            
-            // View button
-            const viewBtn = actionsCell.createEl('button', { 
-                text: 'View',
-                cls: 'mod-cta'
-            });
-            
-            viewBtn.onclick = () => {
-                // Move cursor to the line of this citation
-                this.editor.setCursor({ line: match.line, ch: 0 });
-                this.editor.focus();
-                this.close();
+
+            // Create content container (initially hidden)
+            const content = groupEl.createDiv({ cls: 'citation-group-content' });
+
+            // Add toggle functionality
+            header.onclick = () => {
+                content.style.display = content.style.display === 'none' ? 'block' : 'none';
             };
-            
-            // Add space between buttons
-            actionsCell.createEl('span', { text: ' ', cls: 'button-spacer' });
-            
-            // Convert to Hex button
-            const convertBtn = actionsCell.createEl('button', {
-                text: 'To Hex',
-                cls: 'mod-cta'
+
+            // Add each citation context
+            group.matches.forEach((match: CitationMatch) => {
+                const contextEl = content.createDiv({ cls: 'citation-context' });
+                contextEl.createEl('div', { 
+                    text: `Line ${match.line + 1}: ${match.lineContent}`,
+                    cls: 'citation-line'
+                });
+
+                // Add action buttons
+                const actions = contextEl.createDiv({ cls: 'citation-actions' });
+
+                // View button
+                actions.createEl('button', {
+                    text: 'View',
+                    cls: 'mod-cta',
+                    attr: { 'data-action': 'view' }
+                }).addEventListener('click', () => this.scrollToCitation(match));
+
+                // Convert to Hex button
+                actions.createEl('button', {
+                    text: 'To Hex',
+                    cls: 'mod-cta',
+                    attr: { 'data-action': 'convert' }
+                }).addEventListener('click', () => this.convertCitationToHex(match));
             });
-            
-            convertBtn.onclick = async () => {
-                await this.convertCitationToHex(match);
-                this.close();
-            };
         });
-        
-        // Add convert all button if we have citations
-        if (this.matches.length > 0) {
-            const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
-            const convertAllBtn = buttonContainer.createEl('button', {
-                text: 'Convert All to Hex',
-                cls: 'mod-cta'
-            });
-            
-            convertAllBtn.onclick = async () => {
-                await this.convertAllCitations();
+
+        // Add a button to convert all citations
+        const footer = contentEl.createDiv({ cls: 'modal-button-container' });
+        footer.createEl('button', {
+            text: 'Convert All to Hex',
+            cls: 'mod-cta',
+            attr: { 'data-action': 'convert-all' }
+        }).addEventListener('click', () => this.convertAllCitations());
+    }
+
+    /**
+     * Groups citations by their type and number
+     */
+    private groupCitations(): Record<string, CitationGroup> {
+        const groups: Record<string, CitationGroup> = {};
+
+        this.matches.forEach((match: CitationMatch) => {
+            const key = `${match.type}:${match.number}`;
+            if (!groups[key]) {
+                groups[key] = {
+                    type: match.type,
+                    number: match.number,
+                    matches: []
+                };
+            }
+            groups[key]?.matches.push(match);
+        });
+
+        return groups;
+    }
+
+    /**
+     * Scrolls the editor to a specific citation
+     */
+    private scrollToCitation(match: CitationMatch): void {
+        const line = Math.max(0, match.line - 2); // Show a couple lines before the match
+        this.editor.setCursor({ line, ch: 0 });
+        this.editor.scrollIntoView({ from: { line, ch: 0 }, to: { line: line + 5, ch: 0 } });
+        this.close();
+    }
+
+    /**
+     * Finds all citations in the current document
+     */
+    private findCitations(): void {
+        const lines = this.content.split('\n');
+
+        lines.forEach((line: string, lineIndex: number) => {
+            if (!line) return;
+
+            // Find footnote references [^1]
+            const footnoteRegex = /\[\^(\d+)\]/g;
+            let footnoteMatch;
+            while ((footnoteMatch = footnoteRegex.exec(line)) !== null) {
+                this.matches.push({
+                    type: 'footnote',
+                    number: footnoteMatch[1] || '',
+                    original: footnoteMatch[0] || '',
+                    position: footnoteMatch.index || 0,
+                    line: lineIndex,
+                    lineContent: line
+                });
+            }
+
+            // Find standard citations [1] (but not links [text](url))
+            const citationRegex = /\[(\d+)\]/g;
+            let citationMatch;
+            while ((citationMatch = citationRegex.exec(line)) !== null) {
+                // Skip if it's part of a markdown link
+                if (!/\]\([^)]*$/.test(line.substring(0, citationMatch.index || 0))) {
+                    this.matches.push({
+                        type: 'reference',
+                        number: citationMatch[1] || '',
+                        original: citationMatch[0] || '',
+                        position: citationMatch.index || 0,
+                        line: lineIndex,
+                        lineContent: line
+                    });
+                }
+            }
+        });
+    }
+
+    /**
+     * Converts all citations in the document to hex format
+     */
+    private async convertAllCitations(): Promise<void> {
+        new Notice('Converting all citations to hex format...');
+        try {
+            const content = this.editor.getValue();
+            const result = citationService.convertCitations(content);
+
+            if (result?.changed) {
+                const activeFile = this.app.workspace.getActiveFile();
+                if (!activeFile) {
+                    new Notice('No active file found');
+                    return;
+                }
+
+                await this.app.vault.modify(activeFile as TFile, result.updatedContent);
+                new Notice('Successfully converted all citations to hex format');
                 this.close();
-            };
+            } else {
+                new Notice('No citations were converted');
+            }
+        } catch (error) {
+            console.error('Error converting citations:', error);
+            new Notice('Error converting citations. See console for details.');
         }
     }
 
-    private findCitations() {
-        const lines = this.content.split('\n');
-        
-        lines.forEach((line, lineIndex) => {
-            if (!line) return;
-            
-            // Find footnote references [^1]
-            const footnoteRegex = /\[\^(\d+)\]/g;
-            let match;
-            while ((match = footnoteRegex.exec(line)) !== null) {
-                if (match[0] && match[1] !== undefined) {
-                    this.matches.push({
-                        type: 'footnote',
-                        original: match[0],
-                        number: match[1],
-                        position: match.index,
-                        line: lineIndex,
-                        lineContent: line
-                    });
-                }
-            }
-            
-            // Find citations [1] (but not links [text](url))
-            const citationRegex = /\[(\d+)\]/g;
-            while ((match = citationRegex.exec(line)) !== null) {
-                // Skip if it's part of a markdown link
-                if (match[0] && match[1] !== undefined && !/\]\([^)]*$/.test(line.substring(0, match.index || 0))) {
-                    this.matches.push({
-                        type: 'reference',
-                        original: match[0],
-                        number: match[1],
-                        position: match.index || 0,
-                        line: lineIndex,
-                        lineContent: line
-                    });
-                }
-            }
-        });
-        
-        // Sort by line number and then by position in line
-        this.matches.sort((a, b) => {
-            if (a.line !== b.line) return a.line - b.line;
-            return a.position - b.position;
-        });
-    }
-
-    private async convertAllCitations() {
-        // This will be implemented to convert all citations to hex format
-        new Notice('Converting citations to hex format...');
-        // Implementation will be added after we confirm the modal works
-    }
-
-    private async convertCitationToHex(match: CitationMatch) {
+    /**
+     * Converts a specific citation to hex format
+     */
+    private async convertCitationToHex(match: CitationMatch): Promise<void> {
         try {
-            console.log('Starting citation conversion for:', match);
-            
             const content = this.editor.getValue();
-            
+
             // Use the citation service to handle the conversion
             const result = citationService.convertCitations(
                 content,
                 match.type === 'footnote' ? `[^${match.number}]` : `[${match.number}]`
             );
-            
-            if (result.changed) {
-                console.log('Changes detected, updating file...');
-                
+
+            if (result?.changed) {
                 // Get the current file
                 const activeFile = this.app.workspace.getActiveFile();
                 if (!activeFile) {
-                    const msg = 'No active file found';
-                    console.error(msg);
-                    new Notice(msg);
+                    new Notice('No active file found');
                     return;
                 }
-                
-                console.log('New content prepared, saving to file...');
-                
-                try {
-                    await this.app.vault.modify(activeFile, result.updatedContent);
-                    console.log('File saved successfully');
-                    
-                    // Update the editor content to reflect the changes
-                    this.editor.setValue(result.updatedContent);
-                    new Notice(`✅ Successfully converted citation [${match.number}]`);
-                } catch (error) {
-                    const saveError = error as Error;
-                    const errorMsg = `Failed to save file: ${saveError.message || 'Unknown error'}`;
-                    console.error('Save error:', saveError);
-                    new Notice(`❌ ${errorMsg}`);
-                }
+
+                await this.app.vault.modify(activeFile as TFile, result.updatedContent);
+                new Notice(`Successfully converted ${match.type} [${match.number}] to hex format`);
+                this.close();
             } else {
-                console.log('No changes were made to the file');
-                new Notice(`No instances of [${match.number}] found to convert`);
+                new Notice(`No changes were made to ${match.type} [${match.number}]`);
             }
-            
         } catch (error) {
-            const conversionError = error as Error;
-            const errorMsg = `Error converting citation: ${conversionError.message || 'Unknown error'}`;
-            console.error('Conversion error:', conversionError);
-            new Notice(`❌ ${errorMsg}`);
-        } finally {
-            console.log('Citation conversion completed');
+            console.error(`Error converting citation ${match.number}:`, error);
+            new Notice(`Error converting citation ${match.number}. See console for details.`);
         }
     }
 
