@@ -44,11 +44,23 @@ export default class CiteWidePlugin extends Plugin {
             editorCallback: async (editor: Editor) => {
                 try {
                     const content = editor.getValue();
-                    const result = citationService.convertCitations(content);
+                    // Get all citation groups
+                    const groups = citationService.findCitations(content);
+                    let totalConverted = 0;
+                    let updatedContent = content;
                     
-                    if (result.changed) {
-                        editor.setValue(result.updatedContent);
-                        new Notice(`Updated ${result.stats.citationsConverted} citations`);
+                    // Convert each citation group
+                    for (const group of groups) {
+                        const result = citationService.convertCitation(updatedContent, group.number);
+                        if (result.changed) {
+                            updatedContent = result.content;
+                            totalConverted += result.stats.citationsConverted;
+                        }
+                    }
+                    
+                    if (totalConverted > 0) {
+                        editor.setValue(updatedContent);
+                        new Notice(`Updated ${totalConverted} citations`);
                     } else {
                         new Notice('No citations needed conversion');
                     }
@@ -66,7 +78,7 @@ export default class CiteWidePlugin extends Plugin {
             editorCallback: (editor: Editor) => {
                 try {
                     const cursor = editor.getCursor();
-                    const hexId = citationService.generateHexId();
+                    const hexId = citationService.getNewHexId();
                     
                     // Insert the citation reference at cursor
                     editor.replaceRange(`[^${hexId}]`, cursor);

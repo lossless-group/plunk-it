@@ -1,7 +1,24 @@
-import * as crypto from 'crypto';
+// cite-wide/src/services/citationService.ts
+import crypto from 'crypto';
 
-export interface CitationConversionResult {
-    updatedContent: string;
+export interface CitationMatch {
+    type: 'perplexity' | 'reference' | 'footnote';
+    number: string;
+    original: string;
+    url: string | undefined;  // Explicitly allow undefined
+    index: number;
+    lineContent: string;
+    lineNumber: number;
+}
+
+export interface CitationGroup {
+    number: string;
+    matches: CitationMatch[];
+    url: string | undefined;  // Explicitly allow undefined
+}
+
+export interface ConversionResult {
+    content: string;
     changed: boolean;
     stats: {
         citationsConverted: number;
@@ -9,285 +26,203 @@ export interface CitationConversionResult {
 }
 
 export class CitationService {
+    private hexCache: Map<string, string> = new Map(); // Cache URL to hex ID mapping
+
     /**
-     * Generate a random hex ID of specified length
-     * @param length - Length of the hex ID to generate (default: 6)
-     * @returns Random hex string
+     * Find all citations in the content
      */
-    public generateHexId(length: number = 6): string {
-        return crypto.randomBytes(Math.ceil(length / 2))
+    public findCitations(content: string): CitationGroup[] {
+        const lines = content.split('\n');
+        const matches: CitationMatch[] = [];
+        const urlMap = new Map<string, string>(); // Map of number to URL
+
+        // First pass: Find all footnote definitions to map numbers to URLs
+        lines.forEach((line, _lineIndex) => {
+            // Match Perplexity-style footnotes: "1. [url](url)"
+            const footnoteMatch = line.match(/^(\d+)\.\s+(\[([^\]]+)\]\(([^)]+)\)|(https?:\/\/\S+))/);
+            if (footnoteMatch) {
+                const number = footnoteMatch[1];
+                const url = footnoteMatch[4] || footnoteMatch[2];
+                if (number && url) {
+                    urlMap.set(number, url);
+                }
+            }
+        });
+
+        // Second pass: Find all citations in the content
+        lines.forEach((line, lineIndex) => {
+            // Match Perplexity-style citations: [1](url)
+            const citationRegex = /\[(\d+)\]\(([^)]+)\)/g;
+            let citationMatch;
+            
+            while ((citationMatch = citationRegex.exec(line)) !== null) {
+                const [fullMatch, number, url] = citationMatch;
+                
+                // Skip if number is undefined
+                if (!number) continue;
+                
+                const match: CitationMatch = {
+                    type: 'perplexity',
+                    number,
+                    original: fullMatch,
+                    index: citationMatch.index,
+                    lineContent: line,
+                    lineNumber: lineIndex,
+                    url: url || undefined
+                };
+                
+                matches.push(match);
+            }
+
+            // Match standard markdown links that might be citations
+            const linkRegex = /\[(\d+)\]/g;
+            let linkMatch;
+            
+            while ((linkMatch = linkRegex.exec(line)) !== null) {
+                const [fullMatch, number] = linkMatch;
+                
+                // Skip if number is undefined or if it's part of a markdown link
+                if (!number || line.substring(0, linkMatch.index).endsWith('](')) {
+                    continue;
+                }
+                
+                const url = urlMap.get(number);
+                
+                // Create the match object with all required properties
+                const match: CitationMatch = {
+                    type: 'reference',
+                    number,
+                    original: fullMatch,
+                    index: linkMatch.index,
+                    lineContent: line,
+                    lineNumber: lineIndex,
+                    url: url || undefined
+                };
+                
+                matches.push(match);
+            }
+        });
+
+        // Group matches by number
+        const groups = new Map<string, CitationGroup>();
+        
+        matches.forEach(match => {
+            if (!groups.has(match.number)) {
+                const newGroup: CitationGroup = {
+                    number: match.number,
+                    matches: [],
+                    url: match.url
+                };
+                groups.set(match.number, newGroup);
+            }
+            groups.get(match.number)?.matches.push(match);
+        });
+
+        return Array.from(groups.values());
+    }
+
+    /**
+     * Convert a specific citation to hex format
+     */
+    public convertCitation(
+        content: string, 
+        citationNumber: string, 
+        hexId?: string
+    ): ConversionResult {
+        const groups = this.findCitations(content);
+        const group = groups.find(g => g.number === citationNumber);
+        
+        if (!group) {
+            return { content, changed: false, stats: { citationsConverted: 0 } };
+        }
+
+        // Generate or use provided hex ID
+        const targetHexId = hexId || this.generateHexId();
+        const url = group.url || group.matches[0]?.url;
+        
+        if (!url) {
+            return { content, changed: false, stats: { citationsConverted: 0 } };
+        }
+
+        // Cache the URL to hex ID mapping
+        this.hexCache.set(url, targetHexId);
+
+        let updatedContent = content;
+        let citationsConverted = 0;
+
+        // Process in reverse to avoid position shifting
+        const sortedMatches = [...group.matches].sort((a, b) => b.index - a.index);
+        
+        for (const match of sortedMatches) {
+            const before = updatedContent.substring(0, match.index);
+            const after = updatedContent.substring(match.index + match.original.length);
+            
+            // Ensure proper spacing
+            const needsLeadingSpace = !before.endsWith(' ') && !before.endsWith('\n') && before.length > 0;
+            const needsTrailingSpace = !after.startsWith(' ') && !after.startsWith('\n') && after.length > 0;
+            
+            const replacement = `${needsLeadingSpace ? ' ' : ''}[^${targetHexId}]${needsTrailingSpace ? ' ' : ''}`;
+            
+            updatedContent = before + replacement + after;
+            citationsConverted++;
+        }
+
+        // Add or update the footnote definition
+        const footnoteDef = `[^${targetHexId}]: ${url}`;
+        const footnoteSection = this.ensureFootnoteSection(updatedContent);
+        
+        if (!footnoteSection.content.includes(`[^${targetHexId}]:`)) {
+            updatedContent = updatedContent.replace(
+                footnoteSection.marker,
+                `${footnoteSection.marker}\n${footnoteDef}`
+            );
+        }
+
+        return {
+            content: updatedContent,
+            changed: citationsConverted > 0,
+            stats: { citationsConverted }
+        };
+    }
+
+    /**
+     * Ensure the document has a footnotes section
+     */
+    private ensureFootnoteSection(content: string): { content: string; marker: string } {
+        const footnoteMarker = '\n\n# Footnotes\n';
+        
+        if (content.includes(footnoteMarker)) {
+            return { content, marker: footnoteMarker };
+        }
+
+        const altMarker = '\n## Footnotes\n';
+        if (content.includes(altMarker)) {
+            return { content, marker: altMarker };
+        }
+
+        // Add a new footnotes section at the end
+        return { 
+            content: content + footnoteMarker, 
+            marker: footnoteMarker 
+        };
+    }
+
+    /**
+     * Generate a consistent hex ID for a given URL
+     */
+    private generateHexId(length: number = 6): string {
+        return crypto
+            .randomBytes(Math.ceil(length / 2))
             .toString('hex')
             .slice(0, length);
     }
 
     /**
-     * Convert citations to random hex format
-     * @param content - The markdown content to process
-     * @param targetCitation - Optional specific citation to convert (e.g., '[1]' or '[^1]')
-     * @returns Object with updated content and statistics
+     * Generate a new hex ID for citations
+     * @returns A new unique hex ID
      */
-    /**
-     * Enhanced citation matching function that handles multiple citation formats
-     */
-    private basicCitationMatch(content: string): Array<{
-        type: 'footnote' | 'reference' | 'perplexity';
-        number: string;
-        index: number;
-        original: string;
-        lineContent: string;
-    }> {
-        const matches: Array<{
-            type: 'footnote' | 'reference' | 'perplexity';
-            number: string;
-            index: number;
-            original: string;
-            lineContent: string;
-        }> = [];
-        
-        // Split content into lines to handle Perplexity-style footnotes
-        const lines = content.split('\n');
-        let currentPosition = 0;
-        
-        for (const line of lines) {
-            // 1. Check for Perplexity-style footnotes (e.g., "1. [https://...]")
-            const perplexityMatch = line.match(/^(\d+)\.\s+\[(https?:\/\/[^\]]+)\]/);
-            if (perplexityMatch && perplexityMatch[1] && perplexityMatch[0]) {
-                matches.push({
-                    type: 'perplexity',
-                    number: perplexityMatch[1],
-                    original: perplexityMatch[0],
-                    index: currentPosition + line.indexOf(perplexityMatch[0]),
-                    lineContent: line
-                });
-            }
-            
-            // 2. Find standard footnote references [^1]
-            const footnoteRegex = /\[\^(\d+)\]/g;
-            let footnoteMatch;
-            while ((footnoteMatch = footnoteRegex.exec(line)) !== null) {
-                if (footnoteMatch[1] && footnoteMatch[0]) {
-                    matches.push({
-                        type: 'footnote',
-                        number: footnoteMatch[1],
-                        original: footnoteMatch[0],
-                        index: currentPosition + (footnoteMatch.index || 0),
-                        lineContent: line
-                    });
-                }
-            }
-            
-            // 3. Find standard citations [1] (but not links [text](url))
-            const citationRegex = /\[(\d+)\]/g;
-            let citationMatch;
-            while ((citationMatch = citationRegex.exec(line)) !== null) {
-                // Skip if it's part of a markdown link
-                if (citationMatch[1] && citationMatch[0] && 
-                    !/\]\([^)]*$/.test(line.substring(0, citationMatch.index || 0))) {
-                    matches.push({
-                        type: 'reference',
-                        number: citationMatch[1],
-                        original: citationMatch[0],
-                        index: currentPosition + (citationMatch.index || 0),
-                        lineContent: line
-                    });
-                }
-            }
-            
-            // Update position for the next line
-            currentPosition += line.length + 1; // +1 for the newline character
-        }
-        
-        return matches;
-    }
-    
-    /**
-     * Enhanced citation replacement function
-     */
-    private basicMatchAndReplace(
-        content: string, 
-        targetNumber: string, 
-        hexId: string, 
-        matchType: 'footnote' | 'reference' | 'perplexity' = 'reference',
-        lineContent: string = ''
-    ): string {
-        if (matchType === 'perplexity' && lineContent) {
-            // For Perplexity-style footnotes, replace the entire line with a footnote reference
-            const url = lineContent.match(/^(\d+)\.\s+\[(https?:\/\/[^\]]+)\]/)?.[2] || '';
-            const footnoteDef = `[^${hexId}]: ${url}`;
-            
-            // Replace the line with just the footnote reference
-            let updatedContent = content.replace(
-                lineContent, 
-                `[^${hexId}]`
-            );
-            
-            // Add footnotes section if it doesn't exist
-            if (!updatedContent.includes('# Footnotes')) {
-                updatedContent += '\n\n# Footnotes\n';
-            }
-            
-            // Add the footnote definition if it doesn't exist
-            if (!updatedContent.includes(`[^${hexId}]:`)) {
-                updatedContent += `\n${footnoteDef}`;
-            }
-            
-            return updatedContent;
-        } else {
-            // For standard footnotes and references, replace only the specific instance
-            const matches = this.basicCitationMatch(content);
-            const targetMatch = matches.find(m => 
-                m.type === matchType && 
-                m.number === targetNumber &&
-                (matchType === 'perplexity' ? m.lineContent === lineContent : true)
-            );
-
-            if (!targetMatch) {
-                return content;
-            }
-
-            // For reference type with URL, convert to footnote format and add URL to footnotes
-            const citationWithUrlPattern = new RegExp(`\\[${targetNumber}\\]\\(([^)]+)\\)`);
-            if (matchType === 'reference' && citationWithUrlPattern.test(targetMatch.original)) {
-                // Extract the URL from the original citation
-                const urlMatch = targetMatch.original.match(citationWithUrlPattern);
-                const url = urlMatch ? urlMatch[1] : '';
-                
-                // Replace the entire [number](url) with [^hex]
-                const before = content.substring(0, targetMatch.index);
-                const after = content.substring(targetMatch.index + targetMatch.original.length);
-                
-                // Add the URL to the footnotes section if it doesn't exist
-                let updatedContent = `${before}[^${hexId}]${after}`;
-                
-                // Ensure footnotes section exists
-                if (!updatedContent.includes('# Footnotes')) {
-                    updatedContent += '\n\n# Footnotes\n';
-                }
-                
-                // Add the footnote definition if it doesn't exist
-                if (!updatedContent.includes(`[^${hexId}]:`)) {
-                    updatedContent += `\n[^${hexId}]: ${url}`;
-                }
-                
-                return updatedContent;
-            } else {
-                // For other types, just replace the number inside the brackets
-                const before = content.substring(0, targetMatch.index + (matchType === 'footnote' ? 2 : 1));
-                const after = content.substring(targetMatch.index + targetMatch.original.length - 1);
-                return `${before}${hexId}${after}`;
-            }
-        }
-    }
-
-    public convertCitations(content: string, targetCitation?: string): CitationConversionResult {
-        if (!content) {
-            return { updatedContent: content || '', changed: false, stats: { citationsConverted: 0 } };
-        }
-
-        const matches = this.basicCitationMatch(content);
-        if (matches.length === 0) {
-            return { updatedContent: content, changed: false, stats: { citationsConverted: 0 } };
-        }
-
-        let updatedContent = content;
-        const processedOriginals = new Set<string>();
-        let citationsConverted = 0;
-
-        // If we have a target citation, only process that one
-        const matchesToProcess = targetCitation 
-            ? matches.filter(m => m.original === targetCitation)
-            : matches;
-
-        // Process each match in reverse order to avoid position shifting issues
-        for (let i = matchesToProcess.length - 1; i >= 0; i--) {
-            const match = matchesToProcess[i];
-            if (!match || processedOriginals.has(match.original)) {
-                continue;
-            }
-
-            try {
-                // Generate a hex ID for this citation
-                const hexId = this.generateHexId();
-                
-                // Replace the citation
-                updatedContent = this.basicMatchAndReplace(
-                    updatedContent,
-                    match.number,
-                    hexId,
-                    match.type,
-                    match.lineContent
-                );
-                
-                citationsConverted++;
-                processedOriginals.add(match.original);
-            } catch (error) {
-                console.error(`Error processing citation ${match.number}:`, error);
-            }
-        }
-        
-        try {
-            // Map to store URL to hex ID mappings
-            const urlToHexMap = new Map<string, string>();
-            const hexToUrlMap = new Map<string, string>();
-            
-            // First pass: Find all [number](url) patterns and replace with [^hex]
-            // This handles citations that are adjacent to text or punctuation
-            updatedContent = updatedContent.replace(/([^\s\[]|^)\[(\d+)\]\(([^)]+)\)/g, (_match, prefix, _number, url) => {
-                let hexId: string;
-                
-                // If we've seen this URL before, use the existing hex ID
-                if (urlToHexMap.has(url)) {
-                    hexId = urlToHexMap.get(url)!;
-                } else {
-                    // Generate a new hex ID for this URL
-                    hexId = this.generateHexId();
-                    urlToHexMap.set(url, hexId);
-                    hexToUrlMap.set(hexId, url);
-                }
-                
-                citationsConverted++;
-                // Add a space before the citation if it's not at the start of the line
-                const space = prefix === '' ? '' : ' ';
-                return `${prefix}${space}[^${hexId}]`;
-            });
-            
-            // If we found any citations, add the footnotes section
-            if (citationsConverted > 0) {
-                // Check if footnotes section already exists
-                const hasFootnotesSection = /\n#+\s*Footnotes\s*\n/.test(updatedContent);
-                
-                // If no footnotes section exists, add one
-                if (!hasFootnotesSection) {
-                    updatedContent += '\n\n# Footnotes\n';
-                } else {
-                    updatedContent += '\n';
-                }
-                
-                // Add all footnote definitions
-                hexToUrlMap.forEach((url, hexId) => {
-                    // Check if this footnote is already defined
-                    const footnoteRegex = new RegExp(`\\[\\^${hexId}\\]:.*`, 'g');
-                    if (!footnoteRegex.test(updatedContent)) {
-                        updatedContent += `\n[^${hexId}]: ${url}`;
-                    }
-                });
-            }
-
-            return {
-                updatedContent,
-                changed: citationsConverted > 0,
-                stats: {
-                    citationsConverted
-                }
-            };
-        } catch (error) {
-            console.error('Error processing citations:', error);
-            return { 
-                updatedContent: content, // Return original content on error
-                changed: false, 
-                stats: { citationsConverted: 0 } 
-            };
-        }
+    public getNewHexId(): string {
+        return this.generateHexId();
     }
 }
 
