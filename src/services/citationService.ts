@@ -11,6 +11,7 @@ export interface CitationMatch {
     index: number;
     lineContent: string;
     lineNumber: number;
+    isReferenceSource?: boolean;  // Flag to indicate if this is a reference source entry
 }
 
 export interface CitationGroup {
@@ -173,6 +174,25 @@ export class CitationService {
             const source = this.findReferenceSourceInFootnotes(content, number);
             if (source && typeof source === 'string' && source.trim() !== '') {
                 referenceSources.set(number, source);
+                
+                // Add the reference source as a special match
+                const referenceLine = content.split('\n').findIndex(line => {
+                    const match = line.trim().match(new RegExp(`^${number}\\.\\s+`));
+                    return !!match;
+                });
+                
+                if (referenceLine !== -1) {
+                    matches.push({
+                        type: 'reference',
+                        number,
+                        original: `${number}. ${source}`,
+                        index: content.indexOf(`${number}. `, referenceLine > 0 ? 
+                            content.split('\n').slice(0, referenceLine).join('\n').length : 0),
+                        lineContent: `${number}. ${source}`,
+                        lineNumber: referenceLine + 1,
+                        isReferenceSource: true
+                    });
+                }
             }
         });
         

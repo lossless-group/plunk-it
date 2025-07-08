@@ -94,12 +94,23 @@ export class CitationModal extends Modal {
 
         // Add each citation instance
         group.matches.forEach((match, matchIndex) => {
-            const instanceEl = content.createDiv('cite-wide-instance');
+            const isRefSource = match.isReferenceSource === true;
+            const instanceEl = content.createDiv(`cite-wide-instance ${isRefSource ? 'cite-wide-reference-source' : ''}`);
             
             // Show line number and preview
             const lineInfo = instanceEl.createDiv('cite-wide-line-info');
+            
+            // Add a special badge for reference sources
+            if (isRefSource) {
+                lineInfo.createEl('span', {
+                    text: 'Reference',
+                    cls: 'cite-wide-badge cite-wide-badge-reference'
+                });
+                lineInfo.createEl('span', { text: ' • ' });
+            }
+            
             lineInfo.createEl('span', { 
-                text: `Line ${match.lineNumber + 1}: `,
+                text: `Line ${match.lineNumber}: `,
                 cls: 'cite-wide-line-number'
             });
 
@@ -117,25 +128,31 @@ export class CitationModal extends Modal {
             // Add view and convert buttons
             const btnContainer = instanceEl.createDiv('cite-wide-instance-actions');
             
-            const viewBtn = btnContainer.createEl('button', {
-                text: 'View',
-                cls: 'mod-cta-outline cite-wide-view-btn'
-            });
+            // Only add view/convert buttons for non-reference entries
+            if (!isRefSource) {
+                const viewBtn = btnContainer.createEl('button', {
+                    text: 'View',
+                    cls: 'mod-cta-outline cite-wide-view-btn'
+                });
 
-            viewBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.scrollToLine(match.lineNumber);
-            });
+                viewBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.scrollToLine(match.lineNumber);
+                });
+            }
 
-            const convertBtn = btnContainer.createEl('button', {
-                text: 'Convert',
-                cls: 'mod-cta cite-wide-convert-btn'
-            });
+            // Only add convert button for non-reference entries
+            if (!isRefSource) {
+                const convertBtn = btnContainer.createEl('button', {
+                    text: 'Convert',
+                    cls: 'mod-cta cite-wide-convert-btn'
+                });
 
-            convertBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                await this.convertCitationInstance(group, matchIndex);
-            });
+                convertBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await this.convertCitationInstance(group, matchIndex);
+                });
+            }
         });
     }
 
