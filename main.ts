@@ -11,6 +11,7 @@ export default class CiteWidePlugin extends Plugin {
         // Register commands
         this.registerCitationCommands();
         this.registerReferenceCleanupCommands();
+        this.registerCitationFormattingCommands();
     }
     
     private async loadStyles() {
@@ -124,6 +125,30 @@ export default class CiteWidePlugin extends Plugin {
                 const processed = cleanReferencesSectionService.addColonSyntaxWhereNone(selection);
                 editor.replaceSelection(processed);
                 new Notice('References cleaned up successfully');
+            }
+        });
+    }
+
+    private registerCitationFormattingCommands(): void {
+        // Command to format citations by moving them after punctuation and ensuring proper spacing
+        this.addCommand({
+            id: 'format-citations-punctuation',
+            name: 'Move Citations after Punctuation',
+            editorCallback: (editor: Editor) => {
+                // Process the entire document content
+                const content = editor.getValue();
+                
+                // First move citations after punctuation, then ensure proper spacing
+                let processed = citationService.moveCitationsBehindPunctuation(content);
+                processed = citationService.assureSpacingBetweenCitations(processed);
+                
+                // Only update if there were changes
+                if (processed !== content) {
+                    editor.setValue(processed);
+                    new Notice('Formatted citations in document');
+                } else {
+                    new Notice('No citations needed formatting');
+                }
             }
         });
     }

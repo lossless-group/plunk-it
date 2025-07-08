@@ -414,6 +414,67 @@ export class CitationService {
     public getNewHexId(): string {
         return this.generateHexId();
     }
+
+    /**
+     * Moves citations that appear before punctuation (like commas or periods) to after the punctuation.
+     * Handles multiple citations before punctuation in a single pass.
+     * Example: "text[^1][^2]." becomes "text.[^1] [^2]"
+     * @param content The content to process
+     * @returns The processed content with citations moved behind punctuation
+     */
+    public moveCitationsBehindPunctuation(content: string): string {
+        // Split content into lines to process them individually
+        const lines = content.split('\n');
+        const processedLines = [];
+        
+        for (const line of lines) {
+            // Skip lines that are part of the references section
+            if (line.trim().match(/^\[\^[^\]]+\]:/)) {
+                processedLines.push(line);
+                continue;
+            }
+            
+            let processedLine = line;
+            
+            // First, ensure there's a space between multiple citations
+            processedLine = processedLine.replace(/(\[\^[^\]]+\])(?=\[\^)/g, '$1 ');
+            
+            // Handle citations before periods or commas
+            // This matches text, followed by citations, followed by punctuation
+            const citationsBeforePunctuation = /([^\s\[\]]+)((?:\[\^[^\]]+\](?:\s+)?)+)([.,])/g;
+            
+            // Process each match in the line
+            processedLine = processedLine.replace(citationsBeforePunctuation, (_match, text, citations, punctuation) => {
+                // Clean up the citations while preserving internal spacing
+                const cleanCitations = citations.replace(/\s+/g, ' ').trim();
+                // Move the punctuation after the citations
+                return `${text}${punctuation} ${cleanCitations}`;
+            });
+            
+            // Clean up any double spaces that might have been introduced
+            processedLine = processedLine.replace(/\s+/g, ' ').replace(/([.,]) \[/g, '$1 [');
+            
+            processedLines.push(processedLine);
+        }
+        
+        return processedLines.join('\n');
+    }
+
+    /**
+     * Ensures there is exactly one space between multiple citations
+     * Example: "[^1][^2]" becomes "[^1] [^2]"
+     * @param content The content to process
+     * @returns The processed content with proper spacing between citations
+     */
+    public assureSpacingBetweenCitations(content: string): string {
+        // Match two or more citations with optional whitespace between them
+        const multipleCitations = /(\[\^[^\]]+\])(\s*)(?=\[\^[^\]]+\])/g;
+        
+        // Replace with a single space between citations
+        return content.replace(multipleCitations, (_match, citation, _whitespace) => {
+            return `${citation} `;
+        });
+    }
 }
 
 // Export a singleton instance
