@@ -140,24 +140,30 @@ export class CitationService {
                 }
             }
 
-            // 3. Find standard numeric citations [1]
-            const citationRegex = /\[(\d+)\]/g;
-            let citationMatch;
-            while ((citationMatch = citationRegex.exec(line)) !== null) {
-                // Skip if this is part of a markdown link [text](url)
-                const nextChar = line[citationMatch.index + citationMatch[0].length];
-                if (nextChar !== '(') {
-                    // Create base match without URL
-                    if (citationMatch[1]) {  // Ensure we have a valid number
-                        const matchBase = {
-                            type: 'numeric' as const,
-                            number: citationMatch[1],
-                            original: citationMatch[0],
-                            index: currentPosition + (citationMatch.index || 0),
-                            lineContent: line,
-                            lineNumber: lineNumber
-                        };
-                        matches.push(matchBase);
+            // 3. Find standard numeric citations [1] but skip if in footnotes/references section
+            const isInFootnotesSection = content.substring(currentPosition).includes('## Footnotes') || 
+                                       content.substring(currentPosition).includes('## References');
+        
+            if (!isInFootnotesSection) {
+                const citationRegex = /\[(\d+)\]/g;
+                let citationMatch;
+                while ((citationMatch = citationRegex.exec(line)) !== null) {
+                    // Skip if this is part of a markdown link [text](url) or footnote [^1]
+                    const nextChar = line[citationMatch.index + citationMatch[0].length];
+                    if (nextChar !== '(' && nextChar !== '^') {
+                        // Create base match without URL
+                        if (citationMatch[1]) {  // Ensure we have a valid number
+                            const matchBase = {
+                                type: 'numeric' as const,
+                                number: citationMatch[1],
+                                original: citationMatch[0],
+                                index: currentPosition + (citationMatch.index || 0),
+                                lineContent: line,
+                                lineNumber: lineNumber,
+                                isReferenceSource: false
+                            };
+                            matches.push(matchBase);
+                        }
                     }
                 }
             }
@@ -171,25 +177,48 @@ export class CitationService {
         
         // Add reference sources to the groups and ensure they're valid strings
         referenceNumbers.forEach(number => {
-            const source = this.findReferenceSourceInFootnotes(content, number);
-            if (source && typeof source === 'string' && source.trim() !== '') {
-                referenceSources.set(number, source);
+            // Only process reference sources that are in the footnotes/references section
+            const lines = content.split('\n');
+            let inFootnotesSection = false;
+            let lastReferenceLine = -1;
+            
+            // Find the last occurrence of this number in the footnotes/references section
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i]?.trim() || '';
                 
-                // Add the reference source as a special match
-                const referenceLine = content.split('\n').findIndex(line => {
-                    const match = line.trim().match(new RegExp(`^${number}\\.\\s+`));
-                    return !!match;
-                });
+                // Check for section headers
+                if (line.match(/^##\s*(?:References|Footnotes)\s*$/i)) {
+                    inFootnotesSection = true;
+                    continue;
+                } else if (line.startsWith('##') && inFootnotesSection) {
+                    // Found another section, stop searching
+                    break;
+                }
                 
-                if (referenceLine !== -1) {
+                // Look for the reference line in the footnotes section
+                if (inFootnotesSection) {
+                    const match = line.match(new RegExp(`^${number}\\.\\s+(.+)$`));
+                    if (match && match[1]) {
+                        lastReferenceLine = i;
+                        referenceSources.set(number, match[1].trim());
+                    }
+                }
+            }
+            
+            // If we found a reference line, add it as a special match
+            if (lastReferenceLine !== -1) {
+                const source = referenceSources.get(number);
+                if (source) {
+                    const lineContent = `${number}. ${source}`;
+                    const lineStartPos = content.split('\n').slice(0, lastReferenceLine).join('\n').length + 1; // +1 for newline
+                    
                     matches.push({
                         type: 'reference',
                         number,
-                        original: `${number}. ${source}`,
-                        index: content.indexOf(`${number}. `, referenceLine > 0 ? 
-                            content.split('\n').slice(0, referenceLine).join('\n').length : 0),
-                        lineContent: `${number}. ${source}`,
-                        lineNumber: referenceLine + 1,
+                        original: lineContent,
+                        index: content.indexOf(lineContent, lineStartPos - 1) || 0,
+                        lineContent: lineContent,
+                        lineNumber: lastReferenceLine + 1,
                         isReferenceSource: true
                     });
                 }
