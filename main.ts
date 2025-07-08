@@ -1,6 +1,7 @@
 import { Notice, Plugin, Editor } from 'obsidian';
 import { citationService } from './src/services/citationService';
 import { CitationModal } from './src/modals/CitationModal';
+import { cleanReferencesSectionService } from './src/services/cleanReferencesSectionService';
 
 export default class CiteWidePlugin extends Plugin {
     async onload(): Promise<void> {
@@ -9,6 +10,7 @@ export default class CiteWidePlugin extends Plugin {
         
         // Register commands
         this.registerCitationCommands();
+        this.registerReferenceCleanupCommands();
     }
     
     private async loadStyles() {
@@ -103,6 +105,25 @@ export default class CiteWidePlugin extends Plugin {
                     const errorMsg = error instanceof Error ? error.message : String(error);
                     new Notice('Error inserting citation: ' + errorMsg);
                 }
+            }
+        });
+    }
+
+    private registerReferenceCleanupCommands(): void {
+        // Command to clean up references section
+        this.addCommand({
+            id: 'clean-references-section',
+            name: 'Add Colon to Footnote References in Selection',
+            editorCallback: (editor: Editor) => {
+                const selection = editor.getSelection();
+                if (!selection) {
+                    new Notice('Please select some text first');
+                    return;
+                }
+                
+                const processed = cleanReferencesSectionService.addColonSyntaxWhereNone(selection);
+                editor.replaceSelection(processed);
+                new Notice('References cleaned up successfully');
             }
         });
     }
