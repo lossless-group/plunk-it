@@ -254,20 +254,57 @@ export class CitationService {
         hexId?: string,
         matchIndex: number = -1
     ): ConversionResult {
-        // First preprocess the content to clean up any URL links
-        const preprocessedContent = this.preprocessCitations(content);
+        // Generate or use provided hex ID
+        const targetHexId = hexId || this.generateHexId();
+        let updatedContent = content;
+        let citationsConverted = 0;
+        
+        // First, handle the reference source in the footnotes section if it exists
+        const refSource = this.findReferenceSourceInFootnotes(content, citationNumber);
+        if (refSource) {
+            // Format the reference source with the hex ID and colon
+            const footnoteDef = `[^${targetHexId}]: ${refSource}`;
+            const footnoteSection = this.ensureFootnoteSection(content);
+            
+            // Remove the original reference line but keep the content
+            updatedContent = content.replace(
+                new RegExp(`^${citationNumber}\\.\\s+${refSource.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'),
+                ''
+            ).replace(/\n{3,}/g, '\n\n').trim();
+            
+            // Add the new footnote definition if it doesn't already exist
+            if (!footnoteSection.content.includes(`[^${targetHexId}]:`)) {
+                // If we're in the references section, add it there, otherwise add to footnotes
+                if (content.includes('## References')) {
+                    updatedContent = updatedContent.replace(
+                        /(## References\n+)(?=[^#])/,
+                        `$1${footnoteDef}\n`
+                    );
+                } else {
+                    updatedContent = updatedContent.replace(
+                        footnoteSection.marker,
+                        `${footnoteSection.marker}\n${footnoteDef}`
+                    );
+                }
+            }
+            
+            citationsConverted++;
+        }
+        
+        // Then process other citations
+        const preprocessedContent = this.preprocessCitations(updatedContent);
         const groups = this.findCitations(preprocessedContent);
         const group = groups.find(g => g.number === citationNumber);
         
         if (!group) {
-            return { content: preprocessedContent, changed: false, stats: { citationsConverted: 0 } };
+            return { 
+                content: citationsConverted > 0 ? updatedContent : preprocessedContent, 
+                changed: citationsConverted > 0, 
+                stats: { citationsConverted } 
+            };
         }
-
-        // Generate or use provided hex ID
-        const targetHexId = hexId || this.generateHexId();
-        let updatedContent = preprocessedContent;
-        let citationsConverted = 0;
-        const url = group.matches[0]?.url;
+        
+        updatedContent = preprocessedContent;
 
         // If a specific match index is provided, only convert that one
         const matchesToProcess = matchIndex >= 0 && matchIndex < group.matches.length 
@@ -289,7 +326,7 @@ export class CitationService {
             if (match.type === 'perplexity' && match.url) {
                 // Match the URL pattern that might follow the citation
                 const urlPattern = new RegExp(
-                    `\\[${citationNumber}\\]\\s*\\[([^\]]+)\\]\([^)]+\)`
+                    `\\[${citationNumber}\\]\\s*\\[[^\]]+\\]\([^)]+\)`
                 );
                 const urlMatch = updatedContent.match(urlPattern);
                 
@@ -302,21 +339,6 @@ export class CitationService {
             }
         }
         
-        // Add footnote definition if we have a URL and converted citations
-        if (citationsConverted > 0 && url) {
-            const footnoteDef = `[^${targetHexId}]: ${url}`;
-            const footnoteSection = this.ensureFootnoteSection(updatedContent);
-            
-            if (!footnoteSection.content.includes(`[^${targetHexId}]:`)) {
-                updatedContent = updatedContent.replace(
-                    footnoteSection.marker,
-                    `${footnoteSection.marker}\n${footnoteDef}`
-                );
-            }
-        }
-
-        // No need for post-processing since we handle URLs in preprocess step
-
         return {
             content: updatedContent,
             changed: citationsConverted > 0,
