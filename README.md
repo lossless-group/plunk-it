@@ -1,12 +1,8 @@
-# Cite Wide Obsidian Plugin
+# Obsidian Plugin Starter
 
-An Obsidian plugin for rigorous, vault-wide citation management. Converts numeric footnotes into unique hex-codes, logs unique hex codes and their reference information into a base, assures consistent hex codes per reference.
+This is barebones starter code to build an Obsidian plugin.  It is a clone of the official Obsidian plugin starter code, but with updated libraries.
 
-## Unique Hex Code Generation
-
-This plugin will iterate through numeric footnotes in a file or directory and convert them into unique hex-codes. The hex-codes will be logged into a base, and the footnotes will be updated to use the hex-codes. The hex-codes will be generated using a consistent algorithm that ensures the same reference always generates the same hex-code.
-
-# Getting Started
+## Getting Started
 
 ```
 pnpm install
@@ -15,3 +11,10 @@ pnpm build
 pnpm dev
 ```
 
+## Using Symbolic Links to Test Your Plugin
+
+If you're like us, you have a directory housing all your code projects. To use your plugin as you develop it, just create a symbolic link. Here is my example, but you will need to use your own path structure:
+
+```bash
+ln -s /Users/mpstaton/code/lossless-monorepo/obsidian-plugin-starter /Users/mpstaton/content-md/lossless/.obsidian/plugins/
+```
