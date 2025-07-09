@@ -1,6 +1,6 @@
 {
-	"name": "cite-wide",
-	"version": "0.0.0.1",
+	"name": "obsidian-plugin-starter",
+	"version": "0.0.1.0",
 	"description": "This is starter code for Obsidian plugins (https://obsidian.md)",
 	"main": "main.js",
 	"scripts": {
