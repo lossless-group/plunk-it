@@ -1,6 +1,6 @@
 # Obsidian Plugin Starter
 
-This is barebones starter code to build an Obsidian plugin.  It is a clone of the official Obsidian plugin starter code, but with updated libraries.
+This is barebones starter code to build an Obsidian plugin using the `pnpm` package manager.  It is a clone of the official Obsidian plugin starter code, but with updated libraries, packages, dependencies. 
 
 ## Getting Started
 
@@ -9,6 +9,27 @@ pnpm install
 pnpm add -D esbuild @types/node builtin-modules
 pnpm build
 pnpm dev
+```
+
+## Packages, Dependencies, Libraries:
+
+```json
+"devDependencies": {
+   "@types/node": "^24.0.12",
+   "@typescript-eslint/eslint-plugin": "8.36.0",
+   "@typescript-eslint/parser": "8.36.0",
+   "builtin-modules": "5.0.0",
+   "esbuild": "0.25.6",
+   "eslint": "^9.30.1",
+   "obsidian": "latest",
+   "tslib": "2.8.1",
+   "typescript": "5.8.3"
+},
+"dependencies": {
+   "@modelcontextprotocol/sdk": "^1.15.0",
+   "fastify": "^5.4.0",
+   "zod": "^4.0.0"
+}
 ```
 
 ## Using Symbolic Links to Test Your Plugin
