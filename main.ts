@@ -1,17 +1,20 @@
 import { Notice, Plugin, Editor } from 'obsidian';
-import { citationService } from './src/services/citationService';
-import { CitationModal } from './src/modals/CitationModal';
-import { cleanReferencesSectionService } from './src/services/cleanReferencesSectionService';
+// Import your services here
+// import { yourService } from './src/services/yourService';
+// Import your modals here  
+// import { YourModal } from './src/modals/YourModal';
+// Import your utilities here
+// import { yourUtility } from './src/utils/yourUtility';
 
-export default class CiteWidePlugin extends Plugin {
+export default class {{PLUGIN_CLASS_NAME}} extends Plugin {
     async onload(): Promise<void> {
         // Load CSS
         this.loadStyles();
         
         // Register commands
-        this.registerCitationCommands();
-        this.registerReferenceCleanupCommands();
-        this.registerCitationFormattingCommands();
+        this.registerCommands();
+        // Add additional command groups as needed
+        // this.registerAdditionalCommands();
     }
     
     private async loadStyles() {
@@ -22,7 +25,7 @@ export default class CiteWidePlugin extends Plugin {
             
             const css = await response.text();
             const styleEl = document.createElement('style');
-            styleEl.id = 'cite-wide-styles';
+            styleEl.id = '{{PLUGIN_ID}}-styles';
             styleEl.textContent = css;
             document.head.appendChild(styleEl);
         } catch (error) {
@@ -30,91 +33,69 @@ export default class CiteWidePlugin extends Plugin {
         }
     }
 
-    private registerCitationCommands(): void {
-        // Command to show citations in current file
+    private registerCommands(): void {
+        // Example command with modal
         this.addCommand({
-            id: 'show-citations',
-            name: 'Show Citations in Current File',
+            id: 'open-modal-command',
+            name: 'Open Modal Command',
             editorCallback: (editor: Editor) => {
-                new CitationModal(this.app, editor).open();
+                // Example: Open a modal
+                // new YourModal(this.app, editor).open();
+                new Notice('Modal command triggered - implement your modal here');
             }
         });
 
-        // Command to convert all citations to hex format
+        // Example command with text processing
         this.addCommand({
-            id: 'convert-all-citations',
-            name: 'Convert All Citations to Hex Format',
+            id: 'process-content-command',
+            name: 'Process Content Command', 
             editorCallback: async (editor: Editor) => {
                 try {
                     const content = editor.getValue();
-                    // Get all citation groups
-                    const groups = citationService.findCitations(content);
-                    let totalConverted = 0;
-                    let updatedContent = content;
                     
-                    // Convert each citation group
-                    for (const group of groups) {
-                        const result = citationService.convertCitation(updatedContent, group.number);
-                        if (result.changed) {
-                            updatedContent = result.content;
-                            totalConverted += result.stats.citationsConverted;
-                        }
-                    }
+                    // Example: Process the content with your service
+                    // const result = yourService.processContent(content);
+                    // if (result.changed) {
+                    //     editor.setValue(result.content);
+                    //     new Notice(`Processed successfully`);
+                    // } else {
+                    //     new Notice('No changes needed');
+                    // }
                     
-                    if (totalConverted > 0) {
-                        editor.setValue(updatedContent);
-                        new Notice(`Updated ${totalConverted} citations`);
-                    } else {
-                        new Notice('No citations needed conversion');
-                    }
+                    new Notice('Content processing command - implement your logic here');
                 } catch (error) {
                     const errorMsg = error instanceof Error ? error.message : String(error);
-                    new Notice('Error processing citations: ' + errorMsg);
+                    new Notice('Error processing content: ' + errorMsg);
                 }
             }
         });
 
-        // Command to insert a new citation
+        // Example command for cursor operations
         this.addCommand({
-            id: 'insert-hex-citation',
-            name: 'Insert Hex Citation',
+            id: 'insert-at-cursor-command',
+            name: 'Insert at Cursor Command',
             editorCallback: (editor: Editor) => {
                 try {
                     const cursor = editor.getCursor();
-                    const hexId = citationService.getNewHexId();
+                    const textToInsert = 'Example text'; // Replace with your logic
                     
-                    // Insert the citation reference at cursor
-                    editor.replaceRange(`[^${hexId}]`, cursor);
+                    // Insert text at cursor
+                    editor.replaceRange(textToInsert, cursor);
                     
-                    // Add the footnote definition at the end
-                    const content = editor.getValue();
-                    const footnotePosition = {
-                        line: content.split('\n').length,
-                        ch: 0 
-                    };
-                    
-                    editor.replaceRange(`\n\n[^${hexId}]: `, footnotePosition);
-                    
-                    // Position cursor after the inserted citation
-                    const newPos = {
-                        line: footnotePosition.line + 2, // +2 for the two newlines
-                        ch: `[^${hexId}]: `.length
-                    };
-                    editor.setCursor(newPos);
-                    
+                    new Notice('Text inserted at cursor');
                 } catch (error) {
                     const errorMsg = error instanceof Error ? error.message : String(error);
-                    new Notice('Error inserting citation: ' + errorMsg);
+                    new Notice('Error inserting text: ' + errorMsg);
                 }
             }
         });
     }
 
-    private registerReferenceCleanupCommands(): void {
-        // Command to clean up references section
+    // Example: Additional command group for selection operations
+    private registerSelectionCommands(): void {
         this.addCommand({
-            id: 'clean-references-section',
-            name: 'Add Colon to Footnote References in Selection',
+            id: 'process-selection-command',
+            name: 'Process Selection Command',
             editorCallback: (editor: Editor) => {
                 const selection = editor.getSelection();
                 if (!selection) {
@@ -122,32 +103,33 @@ export default class CiteWidePlugin extends Plugin {
                     return;
                 }
                 
-                const processed = cleanReferencesSectionService.addColonSyntaxWhereNone(selection);
-                editor.replaceSelection(processed);
-                new Notice('References cleaned up successfully');
+                // Example: Process the selection
+                // const processed = yourService.processSelection(selection);
+                // editor.replaceSelection(processed);
+                
+                editor.replaceSelection(selection.toUpperCase()); // Example transformation
+                new Notice('Selection processed successfully');
             }
         });
     }
 
-    private registerCitationFormattingCommands(): void {
-        // Command to format citations by moving them after punctuation and ensuring proper spacing
+    // Example: Additional command group for formatting operations
+    private registerFormattingCommands(): void {
         this.addCommand({
-            id: 'format-citations-punctuation',
-            name: 'Move Citations after Punctuation',
+            id: 'format-document-command',
+            name: 'Format Document Command',
             editorCallback: (editor: Editor) => {
-                // Process the entire document content
                 const content = editor.getValue();
                 
-                // First move citations after punctuation, then ensure proper spacing
-                let processed = citationService.moveCitationsBehindPunctuation(content);
-                processed = citationService.assureSpacingBetweenCitations(processed);
+                // Example: Format the document
+                // const formatted = yourService.formatDocument(content);
+                const formatted = content.trim(); // Example formatting
                 
-                // Only update if there were changes
-                if (processed !== content) {
-                    editor.setValue(processed);
-                    new Notice('Formatted citations in document');
+                if (formatted !== content) {
+                    editor.setValue(formatted);
+                    new Notice('Document formatted successfully');
                 } else {
-                    new Notice('No citations needed formatting');
+                    new Notice('No formatting needed');
                 }
             }
         });
