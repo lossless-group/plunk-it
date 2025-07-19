@@ -1,90 +1,224 @@
-/* src/styles/citations.css */
-.cite-wide-modal {
-  padding: 1.5rem;
-  max-width: 800px;
-  margin: 0 auto;
+/* Generic Modal Styles for {{PLUGIN_ID}} */
+
+/* Base Modal Styling */
+.{{PLUGIN_ID}}-modal {
+    padding: 1.5rem;
+    max-width: 900px;
+    max-height: 80vh;
+    margin: 0 auto;
+    overflow-y: auto;
 }
-.cite-wide-title {
-  margin-top: 0;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--background-modifier-border);
+
+.{{PLUGIN_ID}}-modal h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--interactive-accent);
+    color: var(--text-normal);
+    font-size: 1.5rem;
+    font-weight: 600;
 }
-.cite-wide-container {
-  margin-top: 1rem;
+
+/* Modal Section Styling */
+.modal-section {
+    margin-bottom: 2rem;
+    padding: 1rem;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    background-color: var(--background-secondary);
 }
-.cite-wide-group {
-  margin-bottom: 1.5rem;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
-  overflow: hidden;
+
+.modal-section:last-child {
+    margin-bottom: 0;
 }
-.cite-wide-group-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  background-color: var(--background-secondary);
-  cursor: pointer;
-  transition: background-color 0.2s;
+
+.modal-section h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--background-modifier-border);
+    color: var(--interactive-accent);
+    font-size: 1.1rem;
+    font-weight: 500;
 }
-.cite-wide-group-header:hover {
-  background-color: var(--background-modifier-hover);
+
+/* Setting Item Overrides */
+.modal-section .setting-item {
+    border: none;
+    padding: 0.75rem 0;
+    background: transparent;
 }
-.cite-wide-group-header-content {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+
+.modal-section .setting-item:not(:last-child) {
+    border-bottom: 1px solid var(--background-modifier-border-hover);
 }
-.cite-wide-group-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+
+.modal-section .setting-item-info {
+    margin-right: 1rem;
 }
-.cite-wide-source-link {
-  font-size: 0.85rem;
-  opacity: 0.8;
-  text-decoration: none;
+
+.modal-section .setting-item-name {
+    font-weight: 500;
+    color: var(--text-normal);
+    font-size: 0.95rem;
 }
-.cite-wide-group-content {
-  padding: 0.75rem 1rem;
-  background-color: var(--background-primary);
-  border-top: 1px solid var(--background-modifier-border);
+
+.modal-section .setting-item-description {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
 }
-.cite-wide-instance {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--background-modifier-border);
+
+/* Button Styling */
+.modal-section .clickable-icon,
+.modal-section button {
+    margin-left: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    border: 1px solid var(--background-modifier-border);
 }
-.cite-wide-instance:last-child {
-  border-bottom: none;
+
+.modal-section button:first-of-type {
+    margin-left: 0;
 }
-.cite-wide-line-info {
-  flex: 1;
-  font-family: var(--font-monospace);
-  font-size: 0.9em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+/* Primary Action Buttons */
+.modal-section button:not(.mod-warning):not(.mod-cta) {
+    background-color: var(--interactive-normal);
+    color: var(--text-normal);
 }
-.cite-wide-line-number {
-  color: var(--text-muted);
-  margin-right: 0.5rem;
+
+.modal-section button:not(.mod-warning):not(.mod-cta):hover {
+    background-color: var(--interactive-hover);
+    color: var(--text-normal);
 }
-.cite-wide-line-preview {
-  opacity: 0.9;
+
+/* Primary CTA Buttons */
+.modal-section .mod-cta,
+.modal-section button[class*="primary"] {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
 }
-.cite-wide-convert-btn {
-  margin-left: 0.5rem;
+
+.modal-section .mod-cta:hover,
+.modal-section button[class*="primary"]:hover {
+    background-color: var(--interactive-accent-hover);
 }
-.cite-wide-view-btn {
-  margin-left: 0.5rem;
+
+/* Warning/Destructive Buttons */
+.modal-section .mod-warning {
+    background-color: var(--color-red);
+    color: var(--text-on-accent);
+    border-color: var(--color-red);
 }
-.cite-wide-footer {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--background-modifier-border);
-  display: flex;
-  justify-content: flex-end;
+
+.modal-section .mod-warning:hover {
+    background-color: var(--color-red-hover);
+}
+
+/* Input Field Styling */
+.modal-section input[type="text"],
+.modal-section input[type="number"],
+.modal-section textarea {
+    margin-left: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    font-size: 0.9rem;
+    transition: border-color 0.15s ease;
+}
+
+.modal-section input[type="text"]:first-of-type,
+.modal-section input[type="number"]:first-of-type,
+.modal-section textarea:first-of-type {
+    margin-left: 0;
+}
+
+.modal-section input[type="text"]:focus,
+.modal-section input[type="number"]:focus,
+.modal-section textarea:focus {
+    border-color: var(--interactive-accent);
+    outline: none;
+    box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+}
+
+.modal-section input[type="text"]::placeholder,
+.modal-section input[type="number"]::placeholder,
+.modal-section textarea::placeholder {
+    color: var(--text-faint);
+}
+
+/* Multi-button Groups */
+.modal-section .setting-item-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Case Transformation Buttons */
+.modal-section .setting-item-control button[class*="case"] {
+    min-width: 80px;
+    font-family: var(--font-monospace);
+}
+
+/* Directory Input Styling */
+.modal-section input[placeholder*="directory"],
+.modal-section input[placeholder*="Directory"] {
+    font-family: var(--font-monospace);
+    font-size: 0.85rem;
+}
+
+/* Progress/Status Indicators */
+.{{PLUGIN_ID}}-status {
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    margin: 0.5rem 0;
+}
+
+.{{PLUGIN_ID}}-status.success {
+    background-color: var(--color-green-rgb);
+    color: var(--text-on-accent);
+    border: 1px solid var(--color-green);
+}
+
+.{{PLUGIN_ID}}-status.error {
+    background-color: var(--color-red-rgb);
+    color: var(--text-on-accent);
+    border: 1px solid var(--color-red);
+}
+
+.{{PLUGIN_ID}}-status.info {
+    background-color: var(--color-blue-rgb);
+    color: var(--text-on-accent);
+    border: 1px solid var(--color-blue);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .{{PLUGIN_ID}}-modal {
+        padding: 1rem;
+        max-width: 95vw;
+    }
+    
+    .modal-section {
+        padding: 0.75rem;
+    }
+    
+    .modal-section .setting-item-control {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .modal-section .setting-item-control button,
+    .modal-section .setting-item-control input {
+        margin: 0.25rem 0;
+        width: 100%;
+    }
 }

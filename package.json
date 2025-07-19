@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-plugin-starter",
-	"version": "0.0.1.0",
+	"version": "0.0.1",
 	"description": "This is starter code for Obsidian plugins (https://obsidian.md)",
 	"main": "main.js",
 	"scripts": {
@@ -17,12 +17,13 @@
 	"author": "The Lossless Group",
 	"license": "MIT",
 	"devDependencies": {
+		"@eslint/plugin-kit": "^0.3.3",
 		"@types/node": "^24.0.12",
-		"@typescript-eslint/eslint-plugin": "8.36.0",
-		"@typescript-eslint/parser": "8.36.0",
+		"@typescript-eslint/eslint-plugin": "8.37.0",
+		"@typescript-eslint/parser": "8.37.0",
 		"builtin-modules": "5.0.0",
 		"esbuild": "0.25.6",
-		"eslint": "^9.30.1",
+		"eslint": "^9.31.0",
 		"obsidian": "latest",
 		"tslib": "2.8.1",
 		"typescript": "5.8.3"
