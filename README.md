@@ -4,6 +4,21 @@ This is barebones starter code to build an Obsidian plugin using the `pnpm` pack
 
 ## Getting Started
 
+If you want to use the `setup-plugin.mjs` script, fill out `plugin-config.yaml` and then make it an executable file. 
+
+```bash
+chmod +x setup-plugin.mjs
+```
+
+When run, it will create the basic metadata and fill in the template variables.  If you don't need it, just delete it and happy hacking.
+
+Run the script with 
+
+```bash
+node setup-plugin.mjs
+```
+
+
 ```
 pnpm install
 pnpm add -D esbuild @types/node builtin-modules
