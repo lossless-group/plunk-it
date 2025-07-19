@@ -1,7 +1,7 @@
 // src/modals/CurrentFileModal.ts
 
 import { App, Modal, Notice, Editor, Setting } from 'obsidian';
-import { currentFileService } from '../services/currentFileService';
+import currentFileService from '../services/currentFileService';
 import { textProcessingService } from '../services/textProcessingService';
 import { selectionService } from '../services/selectionService';
 

@@ -1,7 +1,7 @@
-/* Generic Modal Styles for {{PLUGIN_ID}} */
+/* Generic Modal Styles for obsidian-plugin-starter */
 
 /* Base Modal Styling */
-.{{PLUGIN_ID}}-modal {
+.obsidian-plugin-starter-modal {
     padding: 1.5rem;
     max-width: 900px;
     max-height: 80vh;
@@ -9,7 +9,7 @@
     overflow-y: auto;
 }
 
-.{{PLUGIN_ID}}-modal h2 {
+.obsidian-plugin-starter-modal h2 {
     margin-top: 0;
     margin-bottom: 1.5rem;
     padding-bottom: 0.75rem;
@@ -175,26 +175,26 @@
 }
 
 /* Progress/Status Indicators */
-.{{PLUGIN_ID}}-status {
+.obsidian-plugin-starter-status {
     padding: 0.5rem 0.75rem;
     border-radius: 4px;
     font-size: 0.85rem;
     margin: 0.5rem 0;
 }
 
-.{{PLUGIN_ID}}-status.success {
+.obsidian-plugin-starter-status.success {
     background-color: var(--color-green-rgb);
     color: var(--text-on-accent);
     border: 1px solid var(--color-green);
 }
 
-.{{PLUGIN_ID}}-status.error {
+.obsidian-plugin-starter-status.error {
     background-color: var(--color-red-rgb);
     color: var(--text-on-accent);
     border: 1px solid var(--color-red);
 }
 
-.{{PLUGIN_ID}}-status.info {
+.obsidian-plugin-starter-status.info {
     background-color: var(--color-blue-rgb);
     color: var(--text-on-accent);
     border: 1px solid var(--color-blue);
@@ -202,7 +202,7 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .{{PLUGIN_ID}}-modal {
+    .obsidian-plugin-starter-modal {
         padding: 1rem;
         max-width: 95vw;
     }

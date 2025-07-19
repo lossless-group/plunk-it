@@ -1,4 +1,5 @@
 import { PluginSettingTab } from 'obsidian';
+import { Plugin } from 'obsidian';
 
 export interface PluginSettings {
   apiKey: string;
@@ -17,6 +18,10 @@ export interface OpenGraphData {
   type: string;
   site_name: string;
   error?: string;
+}
+
+export interface OpenGraphPlugin extends Plugin {
+  settings: PluginSettings;
 }
 
 export interface OpenGraphPluginSettingsTab extends PluginSettingTab {

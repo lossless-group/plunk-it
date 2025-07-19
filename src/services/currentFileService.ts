@@ -44,7 +44,7 @@ export function deleteText(content: string, start: number, end: number): string 
  */
 export function extractYamlFrontmatter(content: string): string {
     const match = content.match(/^---\n([\s\S]+?)\n---/);
-    return match ? match[1] : '';
+    return match && match[1] ? match[1] : '';
 }
 
 /**
@@ -57,9 +57,12 @@ export function extractYamlFrontmatter(content: string): string {
 export function changeYamlValue(yamlContent: string, key: string, newValue: string): string {
     const lines = yamlContent.split('\n');
     const updatedLines = lines.map(line => {
-        const [currentKey, ...rest] = line.split(':');
-        if (currentKey.trim() === key) {
-            return `${currentKey}: ${newValue}`;
+        const colonIndex = line.indexOf(':');
+        if (colonIndex > -1) {
+            const currentKey = line.substring(0, colonIndex);
+            if (currentKey.trim() === key) {
+                return `${currentKey}: ${newValue}`;
+            }
         }
         return line;
     });

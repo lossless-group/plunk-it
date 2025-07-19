@@ -6,7 +6,7 @@ import { Notice, Plugin, Editor } from 'obsidian';
 // Import your utilities here
 // import { yourUtility } from './src/utils/yourUtility';
 
-export default class {{PLUGIN_CLASS_NAME}} extends Plugin {
+export default class StarterPlugin extends Plugin {
     async onload(): Promise<void> {
         // Load CSS
         this.loadStyles();
@@ -25,7 +25,7 @@ export default class {{PLUGIN_CLASS_NAME}} extends Plugin {
             
             const css = await response.text();
             const styleEl = document.createElement('style');
-            styleEl.id = '{{PLUGIN_ID}}-styles';
+            styleEl.id = 'obsidian-plugin-starter-styles';
             styleEl.textContent = css;
             document.head.appendChild(styleEl);
         } catch (error) {
@@ -38,7 +38,7 @@ export default class {{PLUGIN_CLASS_NAME}} extends Plugin {
         this.addCommand({
             id: 'open-modal-command',
             name: 'Open Modal Command',
-            editorCallback: (editor: Editor) => {
+            editorCallback: (_editor: Editor) => {
                 // Example: Open a modal
                 // new YourModal(this.app, editor).open();
                 new Notice('Modal command triggered - implement your modal here');
@@ -49,9 +49,9 @@ export default class {{PLUGIN_CLASS_NAME}} extends Plugin {
         this.addCommand({
             id: 'process-content-command',
             name: 'Process Content Command', 
-            editorCallback: async (editor: Editor) => {
+            editorCallback: async (_editor: Editor) => {
                 try {
-                    const content = editor.getValue();
+                    // const content = editor.getValue();
                     
                     // Example: Process the content with your service
                     // const result = yourService.processContent(content);
@@ -91,47 +91,25 @@ export default class {{PLUGIN_CLASS_NAME}} extends Plugin {
         });
     }
 
-    // Example: Additional command group for selection operations
-    private registerSelectionCommands(): void {
-        this.addCommand({
-            id: 'process-selection-command',
-            name: 'Process Selection Command',
-            editorCallback: (editor: Editor) => {
-                const selection = editor.getSelection();
-                if (!selection) {
-                    new Notice('Please select some text first');
-                    return;
-                }
-                
-                // Example: Process the selection
-                // const processed = yourService.processSelection(selection);
-                // editor.replaceSelection(processed);
-                
-                editor.replaceSelection(selection.toUpperCase()); // Example transformation
-                new Notice('Selection processed successfully');
-            }
-        });
-    }
-
-    // Example: Additional command group for formatting operations
-    private registerFormattingCommands(): void {
-        this.addCommand({
-            id: 'format-document-command',
-            name: 'Format Document Command',
-            editorCallback: (editor: Editor) => {
-                const content = editor.getValue();
-                
-                // Example: Format the document
-                // const formatted = yourService.formatDocument(content);
-                const formatted = content.trim(); // Example formatting
-                
-                if (formatted !== content) {
-                    editor.setValue(formatted);
-                    new Notice('Document formatted successfully');
-                } else {
-                    new Notice('No formatting needed');
-                }
-            }
-        });
-    }
+    // Additional command groups can be registered here as needed
+    // private registerSelectionCommands(): void {
+    //     this.addCommand({
+    //         id: 'process-selection-command',
+    //         name: 'Process Selection Command',
+    //         editorCallback: (editor: Editor) => {
+    //             const selection = editor.getSelection();
+    //             if (!selection) {
+    //                 new Notice('Please select some text first');
+    //                 return;
+    //             }
+    //             
+    //             // Example: Process the selection
+    //             // const processed = yourService.processSelection(selection);
+    //             // editor.replaceSelection(processed);
+    //             
+    //             editor.replaceSelection(selection.toUpperCase()); // Example transformation
+    //             new Notice('Selection processed successfully');
+    //         }
+    //     });
+    // }
 }
