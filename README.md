@@ -1,4 +1,5 @@
-# Obsidian Plugin Starter
+![Obsidian Plugin Starter Kit by The Lossless Group](https://i.imgur.com/nfqH3Pi.png)
+# Obsidian Plugin Starter Kit
 
 This is barebones starter code to build an Obsidian plugin using the `pnpm` package manager.  It is a clone of the official Obsidian plugin starter code, but with updated libraries, packages, dependencies. 
 

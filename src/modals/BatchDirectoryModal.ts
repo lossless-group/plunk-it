@@ -4,6 +4,7 @@ import { App, Modal, Notice, Setting, TFile } from 'obsidian';
 import currentFileService from '../services/currentFileService';
 import { textProcessingService } from '../services/textProcessingService';
 
+
 export class BatchDirectoryModal extends Modal {
     private targetDirectory: string = '';
 
@@ -15,25 +16,56 @@ export class BatchDirectoryModal extends Modal {
     onOpen() {
         const { contentEl } = this;
         contentEl.empty();
+        
+        // Make the modal wider
+        const modalContainer = contentEl.closest('.modal-container') as HTMLElement;
+        const modalContent = contentEl.closest('.modal-content') as HTMLElement;
+        
+        if (modalContainer && modalContent) {
+            // Set the modal container to be very wide
+            modalContainer.style.width = '95vw';
+            modalContainer.style.maxWidth = 'none';
+            
+            // Ensure the content takes full width
+            modalContent.style.width = '100%';
+            modalContent.style.maxWidth = 'none';
+        }
+        
+        contentEl.addClass('cite-wide-modal');
 
-        contentEl.createEl('h2', { text: 'Batch Directory Operations' });
+        // Create a container for the content
+        const container = contentEl.createDiv('cite-wide-container');
+        
+        // Create header with title
+        const header = container.createDiv('cite-wide-header');
+        header.createEl('h2', { 
+            text: 'Batch Directory Operations',
+            cls: 'cite-wide-title'
+        });
+        
+        // Create main content area
+        const mainContent = container.createDiv('cite-wide-content');
 
         // Directory Selection
-        this.createDirectorySelectionSection(contentEl);
+        this.createDirectorySelectionSection(mainContent);
         
         // Batch File Operations
-        this.createBatchFileOperationsSection(contentEl);
+        this.createBatchFileOperationsSection(mainContent);
         
         // Batch Text Processing Operations
-        this.createBatchTextProcessingSection(contentEl);
+        this.createBatchTextProcessingSection(mainContent);
         
         // Batch Analysis Operations
-        this.createBatchAnalysisSection(contentEl);
+        this.createBatchAnalysisSection(mainContent);
     }
 
-    private createDirectorySelectionSection(contentEl: HTMLElement) {
-        const section = contentEl.createEl('div', { cls: 'modal-section' });
-        section.createEl('h3', { text: 'Directory Selection' });
+    private createDirectorySelectionSection(container: HTMLElement) {
+        const section = container.createEl('div', { cls: 'modal-section' });
+        const sectionHeader = section.createDiv('cite-wide-group-header');
+        sectionHeader.createEl('h3', { 
+            text: 'Directory Selection',
+            cls: 'cite-wide-group-title'
+        });
 
         new Setting(section)
             .setName('Target Directory')
@@ -56,9 +88,13 @@ export class BatchDirectoryModal extends Modal {
             );
     }
 
-    private createBatchFileOperationsSection(contentEl: HTMLElement) {
-        const section = contentEl.createEl('div', { cls: 'modal-section' });
-        section.createEl('h3', { text: 'Batch File Operations' });
+    private createBatchFileOperationsSection(container: HTMLElement) {
+        const section = container.createEl('div', { cls: 'modal-section' });
+        const sectionHeader = section.createDiv('cite-wide-group-header');
+        sectionHeader.createEl('h3', { 
+            text: 'Batch File Operations',
+            cls: 'cite-wide-group-title'
+        });
 
         // Batch List Headers
         new Setting(section)
@@ -115,9 +151,13 @@ export class BatchDirectoryModal extends Modal {
             );
     }
 
-    private createBatchTextProcessingSection(contentEl: HTMLElement) {
-        const section = contentEl.createEl('div', { cls: 'modal-section' });
-        section.createEl('h3', { text: 'Batch Text Processing' });
+    private createBatchTextProcessingSection(container: HTMLElement) {
+        const section = container.createEl('div', { cls: 'modal-section' });
+        const sectionHeader = section.createDiv('cite-wide-group-header');
+        sectionHeader.createEl('h3', { 
+            text: 'Text Processing',
+            cls: 'cite-wide-group-title'
+        });
 
         // Batch Replace All
         let replacePattern = '';
@@ -212,9 +252,13 @@ export class BatchDirectoryModal extends Modal {
             );
     }
 
-    private createBatchAnalysisSection(contentEl: HTMLElement) {
-        const section = contentEl.createEl('div', { cls: 'modal-section' });
-        section.createEl('h3', { text: 'Batch Analysis' });
+    private createBatchAnalysisSection(container: HTMLElement) {
+        const section = container.createEl('div', { cls: 'modal-section' });
+        const sectionHeader = section.createDiv('cite-wide-group-header');
+        sectionHeader.createEl('h3', { 
+            text: 'Analysis & Reporting',
+            cls: 'cite-wide-group-title'
+        });
 
         // Count Pattern Matches
         let countPattern = '';

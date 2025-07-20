@@ -2,7 +2,7 @@ import { Notice, Plugin, Editor } from 'obsidian';
 // Import your services here
 // import { yourService } from './src/services/yourService';
 // Import your modals here  
-// import { YourModal } from './src/modals/YourModal';
+import { BatchDirectoryModal } from './src/modals/BatchDirectoryModal';
 // Import your utilities here
 // import { yourUtility } from './src/utils/yourUtility';
 
@@ -13,6 +13,16 @@ export default class StarterPlugin extends Plugin {
         
         // Register commands
         this.registerCommands();
+        
+        // Register command to open Batch Directory Modal
+        this.addCommand({
+            id: 'open-batch-directory-modal',
+            name: 'Open Batch Directory Operations',
+            callback: () => {
+                new BatchDirectoryModal(this.app).open();
+            }
+        });
+        
         // Add additional command groups as needed
         // this.registerAdditionalCommands();
     }
