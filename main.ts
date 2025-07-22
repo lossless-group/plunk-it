@@ -1,6 +1,6 @@
 import { Notice, Plugin, Editor } from 'obsidian';
 // Import your services here
-// import { yourService } from './src/services/yourService';
+import { processSiteUuidForFile } from './src/services/siteUuidService';
 // Import your modals here  
 import { BatchDirectoryModal } from './src/modals/BatchDirectoryModal';
 // Import your utilities here
@@ -96,6 +96,42 @@ export default class StarterPlugin extends Plugin {
                 } catch (error) {
                     const errorMsg = error instanceof Error ? error.message : String(error);
                     new Notice('Error inserting text: ' + errorMsg);
+                }
+            }
+        });
+
+        // Add site_uuid command
+        this.addCommand({
+            id: 'add-site-uuid',
+            name: 'Add Site UUID',
+            callback: async () => {
+                try {
+                    const activeFile = this.app.workspace.getActiveFile();
+                    if (!activeFile) {
+                        new Notice('No active file found');
+                        return;
+                    }
+
+                    // Check if it's a markdown file
+                    if (activeFile.extension !== 'md') {
+                        new Notice('Site UUID can only be added to Markdown files');
+                        return;
+                    }
+
+                    new Notice('Adding site UUID...', 2000);
+                    const result = await processSiteUuidForFile(activeFile);
+                    
+                    if (result.success) {
+                        const message = result.hadExistingUuid 
+                            ? `Updated site UUID: ${result.uuid}`
+                            : `Added site UUID: ${result.uuid}`;
+                        new Notice(message, 5000);
+                    } else {
+                        new Notice(`Failed to add site UUID: ${result.message}`, 5000);
+                    }
+                } catch (error) {
+                    const errorMsg = error instanceof Error ? error.message : String(error);
+                    new Notice('Error adding site UUID: ' + errorMsg, 5000);
                 }
             }
         });
