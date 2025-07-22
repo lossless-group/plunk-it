@@ -1,6 +1,7 @@
-import { Notice, Plugin, Editor } from 'obsidian';
+import { Notice, Plugin, Editor, MarkdownView } from 'obsidian';
 // Import your services here
 import { processSiteUuidForFile } from './src/services/siteUuidService';
+import { BacklinkUrlService } from './src/services/backlinkUrlService';
 // Import your modals here  
 import { BatchDirectoryModal } from './src/modals/BatchDirectoryModal';
 import { CurrentFileModal } from './src/modals/CurrentFileModal';
@@ -11,6 +12,28 @@ export default class StarterPlugin extends Plugin {
     async onload(): Promise<void> {
         // Load CSS
         this.loadStyles();
+        
+        // Add ribbon icon for Insert URL from Backlink
+        const ribbonIconEl = this.addRibbonIcon(
+            'link',
+            'Insert URL from Backlink',
+            async () => {
+                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                if (activeView && activeView.editor) {
+                    const backlinkService = new BacklinkUrlService(this.app);
+                    const result = await backlinkService.processBacklinkAtCursor(activeView.editor);
+                    
+                    if (result.success) {
+                        new Notice(result.message, 4000);
+                    } else {
+                        new Notice(result.message, 5000);
+                    }
+                } else {
+                    new Notice('Please open a markdown file first');
+                }
+            }
+        );
+        ribbonIconEl.addClass('insert-backlink-url-ribbon-icon');
         
         // Register commands
         this.registerCommands();

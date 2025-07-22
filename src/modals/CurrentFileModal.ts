@@ -1,10 +1,11 @@
 // src/modals/CurrentFileModal.ts
 
-import { App, Modal, Notice, Editor, Setting } from 'obsidian';
+import { App, Editor, Modal, Notice, Setting } from 'obsidian';
 import currentFileService from '../services/currentFileService';
 import { textProcessingService } from '../services/textProcessingService';
 import { selectionService } from '../services/selectionService';
 import { processSiteUuidForFile } from '../services/siteUuidService';
+import { HeaderInfoSection } from './sections/HeaderInfoSection';
 
 export class CurrentFileModal extends Modal {
     private editor: Editor;
@@ -25,6 +26,10 @@ export class CurrentFileModal extends Modal {
 
         // Publish State Operations
         this.createPublishStateSection(contentEl);
+
+        // Header Info Operations
+        const headerInfoSection = new HeaderInfoSection(this.app, this.editor);
+        await headerInfoSection.render(contentEl);
 
         // Current File Service Operations
         this.createFileOperationsSection(contentEl);
