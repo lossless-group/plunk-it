@@ -3,6 +3,7 @@ import { Notice, Plugin, Editor } from 'obsidian';
 import { processSiteUuidForFile } from './src/services/siteUuidService';
 // Import your modals here  
 import { BatchDirectoryModal } from './src/modals/BatchDirectoryModal';
+import { CurrentFileModal } from './src/modals/CurrentFileModal';
 // Import your utilities here
 // import { yourUtility } from './src/utils/yourUtility';
 
@@ -17,9 +18,18 @@ export default class StarterPlugin extends Plugin {
         // Register command to open Batch Directory Modal
         this.addCommand({
             id: 'open-batch-directory-modal',
-            name: 'Open Batch Directory Operations',
+            name: 'Open Batch Directory Modal',
             callback: () => {
                 new BatchDirectoryModal(this.app).open();
+            }
+        });
+
+        // Register command to open Current File Modal
+        this.addCommand({
+            id: 'open-current-file-modal',
+            name: 'Open Current File Modal',
+            editorCallback: (editor: Editor) => {
+                new CurrentFileModal(this.app, editor).open();
             }
         });
         
@@ -27,20 +37,18 @@ export default class StarterPlugin extends Plugin {
         // this.registerAdditionalCommands();
     }
     
-    private async loadStyles() {
-        try {
-            const cssPath = this.manifest.dir + '/styles.css';
-            const response = await fetch(cssPath);
-            if (!response.ok) throw new Error('Failed to load CSS');
-            
-            const css = await response.text();
-            const styleEl = document.createElement('style');
-            styleEl.id = 'obsidian-plugin-starter-styles';
-            styleEl.textContent = css;
-            document.head.appendChild(styleEl);
-        } catch (error) {
-            console.error('Error loading styles:', error);
-        }
+    private loadStyles() {
+        // Obsidian automatically loads styles.css from the plugin directory
+        // This method can be used to add additional dynamic styles if needed
+        
+        // Example of adding dynamic styles:
+        // this.addStyle(`
+        //     .my-plugin-class {
+        //         color: var(--text-accent);
+        //     }
+        // `);
+        
+        console.log('Plugin styles loaded - styles.css is automatically loaded by Obsidian');
     }
 
     private registerCommands(): void {

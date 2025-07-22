@@ -1,7 +1,18 @@
 ![Obsidian Plugin Starter Kit by The Lossless Group](https://i.imgur.com/nfqH3Pi.png)
 # Obsidian Plugin Starter Kit
 
-This is barebones starter code to build an Obsidian plugin using the `pnpm` package manager.  It is a clone of the official Obsidian plugin starter code, but with updated libraries, packages, dependencies. 
+This has a few example features built in, just to make it easy to get the hang of the Obsidian developer API.  These include:
+
+- Adding a UUID to the frontmatter of a file
+- Setting the publish state of a file
+
+
+### Add UUID to Current File
+
+![Command: Add UUID to Current File](https://i.imgur.com/fRyiNlx.gif)
+
+
+This can be used as barebones starter code to build an Obsidian plugin using the `pnpm` package manager.  It is a clone of the official Obsidian plugin starter code, but with updated libraries, packages, dependencies. 
 
 ## Getting Started
 

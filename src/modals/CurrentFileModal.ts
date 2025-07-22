@@ -4,6 +4,7 @@ import { App, Modal, Notice, Editor, Setting } from 'obsidian';
 import currentFileService from '../services/currentFileService';
 import { textProcessingService } from '../services/textProcessingService';
 import { selectionService } from '../services/selectionService';
+import { processSiteUuidForFile } from '../services/siteUuidService';
 
 export class CurrentFileModal extends Modal {
     private editor: Editor;
@@ -13,11 +14,17 @@ export class CurrentFileModal extends Modal {
         this.editor = editor;
     }
 
-    onOpen() {
+    async onOpen() {
         const { contentEl } = this;
         contentEl.empty();
 
         contentEl.createEl('h2', { text: 'Current File Operations' });
+
+        // UUID Operations (at the top)
+        await this.createUuidSection(contentEl);
+
+        // Publish State Operations
+        this.createPublishStateSection(contentEl);
 
         // Current File Service Operations
         this.createFileOperationsSection(contentEl);
@@ -27,6 +34,187 @@ export class CurrentFileModal extends Modal {
         
         // Selection Operations
         this.createSelectionOperationsSection(contentEl);
+    }
+
+    private async createUuidSection(contentEl: HTMLElement) {
+        const section = contentEl.createEl('div', { cls: 'modal-section uuid-section' });
+        section.createEl('h3', { text: 'UUID Operations' });
+
+        // Check if current file has site_uuid
+        const hasUuid = await this.checkForExistingSiteUuid();
+
+        // Add UUID to frontmatter button
+        new Setting(section)
+            .setName('Add Site UUID')
+            .setDesc('Add a unique site_uuid property to the frontmatter of this file')
+            .addButton(button => {
+                const buttonEl = button
+                    .setButtonText('Add UUID to Frontmatter')
+                    .onClick(async () => {
+                        try {
+                            const activeFile = this.app.workspace.getActiveFile();
+                            if (!activeFile) {
+                                new Notice('No active file found');
+                                return;
+                            }
+
+                            // Check if it's a markdown file
+                            if (activeFile.extension !== 'md') {
+                                new Notice('Site UUID can only be added to Markdown files');
+                                return;
+                            }
+
+                            new Notice('Adding site UUID...', 2000);
+                            const result = await processSiteUuidForFile(activeFile);
+                            
+                            if (result.success) {
+                                const message = result.hadExistingUuid 
+                                    ? `Updated site UUID: ${result.uuid}`
+                                    : `Added site UUID: ${result.uuid}`;
+                                new Notice(message, 5000);
+                                
+                                // Refresh the editor content to show the updated frontmatter
+                                const updatedContent = await activeFile.vault.read(activeFile);
+                                this.editor.setValue(updatedContent);
+                                
+                                // Update button styling after adding UUID
+                                this.updateUuidButtonStyling(buttonEl.buttonEl, true);
+                            } else {
+                                new Notice(`Failed to add site UUID: ${result.message}`, 5000);
+                            }
+                        } catch (error) {
+                            const errorMsg = error instanceof Error ? error.message : String(error);
+                            new Notice('Error adding site UUID: ' + errorMsg, 5000);
+                        }
+                    });
+                
+                // Apply initial styling based on UUID presence
+                this.updateUuidButtonStyling(buttonEl.buttonEl, hasUuid);
+                
+                return buttonEl;
+            });
+    }
+
+    private async checkForExistingSiteUuid(): Promise<boolean> {
+        try {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (!activeFile || activeFile.extension !== 'md') {
+                return false;
+            }
+
+            const content = await activeFile.vault.read(activeFile);
+            const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
+            const match = content.match(frontmatterRegex);
+            
+            if (!match) return false;
+            
+            const frontmatterContent = match[1];
+            if (!frontmatterContent) return false;
+            
+            const siteUuidMatch = frontmatterContent.match(/^site_uuid:\s*(.+)$/m);
+            
+            if (!siteUuidMatch || !siteUuidMatch[1]) return false;
+            
+            const uuidValue = siteUuidMatch[1].trim();
+            // Check if UUID exists and is not empty (accounting for quotes)
+            return !!(uuidValue && uuidValue !== '""' && uuidValue !== "''" && uuidValue !== 'null');
+        } catch (error) {
+            console.error('Error checking for existing site_uuid:', error);
+            return false;
+        }
+    }
+
+    private updateUuidButtonStyling(buttonEl: HTMLButtonElement, hasUuid: boolean) {
+        if (hasUuid) {
+            // Remove purple styling if UUID exists
+            buttonEl.style.backgroundColor = '';
+            buttonEl.style.color = '';
+            buttonEl.style.borderColor = '';
+        } else {
+            // Apply purple styling if no UUID
+            buttonEl.style.backgroundColor = 'var(--interactive-accent)';
+            buttonEl.style.color = 'var(--text-on-accent)';
+            buttonEl.style.borderColor = 'var(--interactive-accent-hover)';
+        }
+    }
+
+    private createPublishStateSection(contentEl: HTMLElement) {
+        const section = contentEl.createEl('div', { cls: 'modal-section publish-section' });
+        section.createEl('h3', { text: 'Change publish state?' });
+
+        // Create a container for the buttons with flexbox styling
+        const buttonContainer = section.createEl('div', {
+            cls: 'publish-button-container'
+        });
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.justifyContent = 'space-between';
+        buttonContainer.style.gap = '10px';
+        buttonContainer.style.marginTop = '10px';
+
+        // True button
+        const trueButton = buttonContainer.createEl('button', {
+            text: 'true',
+            cls: 'mod-cta publish-button'
+        });
+        trueButton.style.flex = '1';
+        trueButton.addEventListener('click', () => this.setPublishState(true));
+
+        // False button
+        const falseButton = buttonContainer.createEl('button', {
+            text: 'false',
+            cls: 'mod-cta publish-button'
+        });
+        falseButton.style.flex = '1';
+        falseButton.addEventListener('click', () => this.setPublishState(false));
+    }
+
+    private async setPublishState(publishValue: boolean) {
+        try {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (!activeFile) {
+                new Notice('No active file found');
+                return;
+            }
+
+            // Check if it's a markdown file
+            if (activeFile.extension !== 'md') {
+                new Notice('Publish state can only be set for Markdown files');
+                return;
+            }
+
+            new Notice(`Setting publish to ${publishValue}...`, 2000);
+            
+            // Read current content and extract frontmatter
+            const content = await activeFile.vault.read(activeFile);
+            const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
+            const match = content.match(frontmatterRegex);
+            
+            let frontmatter: Record<string, any> = {};
+            
+            if (match && match[1]) {
+                // Parse existing frontmatter using our utility
+                const { extractFrontmatter } = await import('../utils/yamlFrontmatter');
+                frontmatter = extractFrontmatter(content) || {};
+            }
+            
+            // Update the publish property
+            frontmatter.publish = publishValue;
+            
+            // Format and update the file
+            const { formatFrontmatter, updateFileFrontmatter } = await import('../utils/yamlFrontmatter');
+            const formattedFrontmatter = formatFrontmatter(frontmatter);
+            await updateFileFrontmatter(activeFile, formattedFrontmatter);
+            
+            new Notice(`Publish state set to ${publishValue}`, 3000);
+            
+            // Refresh the editor content to show the updated frontmatter
+            const updatedContent = await activeFile.vault.read(activeFile);
+            this.editor.setValue(updatedContent);
+            
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            new Notice('Error setting publish state: ' + errorMsg, 5000);
+        }
     }
 
     private createFileOperationsSection(contentEl: HTMLElement) {
