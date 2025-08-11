@@ -1,15 +1,4 @@
 /* src/styles/plugin-basics.css */
-
-/* Ribbon Icon Styling */
-.insert-backlink-url-ribbon-icon {
-  color: var(--text-accent);
-  transition: color 0.2s ease;
-}
-
-.insert-backlink-url-ribbon-icon:hover {
-  color: var(--text-accent-hover);
-  transform: scale(1.05);
-}
 .modal {
   padding: 1.5rem;
   max-width: 900px;
