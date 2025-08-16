@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-plugin-starter",
-	"version": "0.0.6",
-	"description": "This is starter code for Obsidian plugins (https://obsidian.md)",
+	"name": "plunk-it",
+	"version": "0.0.1",
+	"description": "Send emails and create campaigns directly from Obsidian using Plunk API",
 	"main": "main.js",
 	"scripts": {
 		"setup": "node setup-plugin.mjs",
@@ -12,8 +12,10 @@
 	"keywords": [
 		"Obsidian",
 		"Plugin",
-		"Footnotes",
-		"Citations"
+		"Email",
+		"Newsletter",
+		"Campaign",
+		"Plunk"
 	],
 	"author": "The Lossless Group",
 	"license": "The Unlicense",
@@ -30,10 +32,6 @@
 		"typescript": "5.8.3"
 	},
 	"dependencies": {
-		"@modelcontextprotocol/sdk": "^1.15.0",
-		"dotenv": "^17.2.1",
-		"fastify": "^5.4.0",
-		"marked": "^9.1.6",
-		"zod": "^4.0.0"
+		"marked": "^9.1.6"
 	}
 }

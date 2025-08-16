@@ -3,7 +3,7 @@ import process from 'node:process';
 import builtins from 'builtin-modules';
 
 const banner = `/*
- * Content Farm Plugin for Obsidian
+ * Plunk It Plugin for Obsidian
  * Generated: ${new Date().toISOString()}
  * Build: ${process.env.NODE_ENV || 'development'}
  */`;
@@ -27,22 +27,13 @@ const external = [
   ...builtins
 ];
 
-// First, build the CSS file
-await esbuild.build({
-  entryPoints: ['src/styles/plugin-basics.css'],
-  bundle: true,
-  minify: isProduction,
-  outfile: 'styles.css',
-  loader: { '.css': 'css' },
-});
-
 const context = await esbuild.context({
   banner: {
     js: banner,
   },
   entryPoints: ['main.ts'],
   bundle: true,
-  external: [...external, './styles.css'],
+  external: [...external],
   format: 'cjs',
   platform: 'node',
   target: 'es2022',

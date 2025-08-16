@@ -1,10 +1,10 @@
 import { App, Modal, Setting } from 'obsidian';
-import { EmailService, CampaignConfig } from '../services/emailService';
+import { EmailService, UpdateCampaignConfig } from '../services/emailService';
 
-export class CampaignModal extends Modal {
+export class UpdateCampaignModal extends Modal {
     private emailService: EmailService;
     private content: string;
-    private config: Partial<CampaignConfig> = {};
+    private config: Partial<UpdateCampaignConfig> = {};
     private onSubmit: (result: { success: boolean; message: string; campaignId?: string }) => void;
     private plugin: any; // Will be the main plugin instance
     private availableClients: string[] = [];
@@ -21,29 +21,25 @@ export class CampaignModal extends Modal {
         this.plugin = plugin;
         this.onSubmit = onSubmit;
         
+        // Extract campaign ID from frontmatter
+        const { frontmatter } = this.emailService.extractFrontmatter(content);
+        const campaignId = frontmatter?.campaignId;
+        
         // Set default values from content and settings
         this.config = {
-            name: this.emailService.getDefaultCampaignName(content),
+            id: campaignId || '',
             subject: this.emailService.getDefaultSubject(content),
             apiToken: this.plugin.settings.plunkApiToken || '',
+            recipients: [], // Will be populated when fetching contacts
             style: 'SANS',
+            subscribedOnly: false,
             selectedClient: 'all'
         };
     }
 
     async onOpen() {
         const { contentEl } = this;
-        contentEl.createEl('h2', { text: 'Create Email Campaign' });
-
-        // Show warning if API token is not configured
-        if (!this.config.apiToken) {
-            const warningEl = contentEl.createEl('div', { 
-                cls: 'setting-item-description',
-                text: '⚠️ Please configure your Plunk API token in the plugin settings first.'
-            });
-            warningEl.style.color = 'var(--text-error)';
-            warningEl.style.fontWeight = 'bold';
-        }
+        contentEl.createEl('h2', { text: 'Update Email Campaign' });
 
         // Load available clients if API token is configured
         if (this.config.apiToken) {
@@ -55,16 +51,33 @@ export class CampaignModal extends Modal {
             }
         }
 
-        // Campaign name setting
+        // Show warning if API token is not configured
+        if (!this.config.apiToken) {
+            const warningEl = contentEl.createEl('div', { 
+                cls: 'setting-item-description',
+                text: '⚠️ Please configure your Plunk API token in the plugin settings first.'
+            });
+            warningEl.style.color = 'var(--text-error)';
+            warningEl.style.fontWeight = 'bold';
+        }
+
+        // Show warning if no campaign ID found
+        if (!this.config.id) {
+            const warningEl = contentEl.createEl('div', { 
+                cls: 'setting-item-description',
+                text: '⚠️ No campaign ID found in frontmatter. Please create a campaign first.'
+            });
+            warningEl.style.color = 'var(--text-error)';
+            warningEl.style.fontWeight = 'bold';
+        }
+
+        // Campaign ID display (read-only)
         new Setting(contentEl)
-            .setName('Campaign Name')
-            .setDesc('Name for your campaign')
+            .setName('Campaign ID')
+            .setDesc('ID of the campaign to update')
             .addText(text => {
-                text.setPlaceholder('My Newsletter Campaign')
-                    .setValue(this.config.name || '')
-                    .onChange(value => {
-                        this.config.name = value;
-                    });
+                text.setValue(this.config.id || '')
+                    .setDisabled(true);
             });
 
         // Subject setting
@@ -76,6 +89,21 @@ export class CampaignModal extends Modal {
                     .setValue(this.config.subject || '')
                     .onChange(value => {
                         this.config.subject = value;
+                    });
+            });
+
+        // Style setting
+        new Setting(contentEl)
+            .setName('Style')
+            .setDesc('Email styling template')
+            .addDropdown(dropdown => {
+                dropdown
+                    .addOption('SANS', 'Sans Serif')
+                    .addOption('SERIF', 'Serif')
+                    .addOption('HTML', 'HTML Email')
+                    .setValue(this.config.style || 'SANS')
+                    .onChange(value => {
+                        this.config.style = value;
                     });
             });
 
@@ -109,25 +137,10 @@ export class CampaignModal extends Modal {
                     });
             });
 
-        // Style setting
-        new Setting(contentEl)
-            .setName('Style')
-            .setDesc('Email styling template')
-            .addDropdown(dropdown => {
-                dropdown
-                    .addOption('SANS', 'Sans Serif')
-                    .addOption('SERIF', 'Serif')
-                    .addOption('HTML', 'HTML Email')
-                    .setValue('SANS')
-                    .onChange(value => {
-                        this.config.style = value;
-                    });
-            });
-
         // Info about recipients
         const infoEl = contentEl.createEl('div', { 
             cls: 'setting-item-description',
-            text: `ℹ️ This campaign will be sent to contacts in your Plunk account${this.config.selectedClient && this.config.selectedClient !== 'all' ? ` from client: ${this.config.selectedClient}` : ''}.`
+            text: `ℹ️ This campaign will be updated with the new content and settings${this.config.selectedClient && this.config.selectedClient !== 'all' ? ` and sent to contacts from client: ${this.config.selectedClient}` : ''}.`
         });
         infoEl.style.color = 'var(--text-muted)';
         infoEl.style.fontStyle = 'italic';
@@ -143,23 +156,21 @@ export class CampaignModal extends Modal {
         });
 
         buttonContainer.createEl('button', {
-            text: 'Create Campaign',
+            text: 'Update Campaign',
             cls: 'mod-cta'
         }).addEventListener('click', async () => {
-            await this.createCampaign();
+            await this.updateCampaign();
         });
     }
 
-
-
-    private async createCampaign() {
+    private async updateCampaign() {
         // Validate required fields
         if (!this.config.apiToken) {
             this.onSubmit({ success: false, message: 'API token is required' });
             return;
         }
-        if (!this.config.name) {
-            this.onSubmit({ success: false, message: 'Campaign name is required' });
+        if (!this.config.id) {
+            this.onSubmit({ success: false, message: 'Campaign ID is required' });
             return;
         }
         if (!this.config.subject) {
@@ -168,7 +179,35 @@ export class CampaignModal extends Modal {
         }
 
         try {
-            const result = await this.emailService.createCampaign(this.content, this.config as CampaignConfig);
+            // Get all contacts for recipients (filtered by subscribed status and client if requested)
+            const recipients = await this.emailService.getAllContacts(this.config.apiToken, this.config.subscribedOnly, this.config.selectedClient);
+            
+            if (recipients.length === 0) {
+                let filterText = '';
+                if (this.config.subscribedOnly) {
+                    filterText += 'subscribed ';
+                }
+                if (this.config.selectedClient && this.config.selectedClient !== 'all') {
+                    filterText += `from client '${this.config.selectedClient}' `;
+                }
+                this.onSubmit({ success: false, message: `No ${filterText}contacts found. Please add some contacts to your Plunk account first.` });
+                return;
+            }
+
+            // Extract body content (without frontmatter)
+            const { body } = this.emailService.extractFrontmatter(this.content);
+
+            const updateConfig: UpdateCampaignConfig = {
+                id: this.config.id,
+                subject: this.config.subject,
+                body: body,
+                apiToken: this.config.apiToken,
+                recipients: recipients,
+                ...(this.config.style && { style: this.config.style }),
+                ...(this.config.selectedClient && { selectedClient: this.config.selectedClient })
+            };
+
+            const result = await this.emailService.updateCampaign(body, updateConfig);
             this.onSubmit(result);
             this.close();
         } catch (error) {

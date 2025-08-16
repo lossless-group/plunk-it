@@ -1,68 +1,56 @@
-![Obsidian Plugin Starter Kit by The Lossless Group](https://i.imgur.com/nfqH3Pi.png)
-# Obsidian Plugin Starter Kit
+# Plunk It - Obsidian Email Plugin
 
-This has a few example features built in, just to make it easy to get the hang of the Obsidian developer API.  These include:
+Send emails and create campaigns directly from Obsidian using the Plunk API.
 
-- Adding a UUID to the frontmatter of a file
-- Setting the publish state of a file
+## Features
 
+- **Send Individual Emails**: Send one-off emails to contacts in your Plunk account
+- **Create Email Campaigns**: Create reusable campaigns with custom styling
+- **Update Campaigns**: Modify existing campaigns with new content and settings
+- **Send Campaigns**: Send campaigns to your contact list
+- **Client Filtering**: Filter contacts by specific clients
+- **Subscription Filtering**: Send only to subscribed contacts
+- **Markdown Support**: Write emails in Markdown with automatic HTML conversion
 
-### Add UUID to Current File
+## Commands
 
-![Command: Add UUID to Current File](https://i.imgur.com/fRyiNlx.gif)
+### Send Email
+Send a one-off email to contacts in your Plunk account.
 
+### Create Email Campaign
+Create a new email campaign that can be reused and sent multiple times.
 
-This can be used as barebones starter code to build an Obsidian plugin using the `pnpm` package manager.  It is a clone of the official Obsidian plugin starter code, but with updated libraries, packages, dependencies. 
+### Update Email Campaign
+Update an existing campaign with new content and settings.
 
-## Getting Started
+### Send Email Campaign
+Send an existing campaign to your contact list.
 
-If you want to use the `setup-plugin.mjs` script, fill out `plugin-config.yaml` and then make it an executable file. 
+## Setup
+
+1. Install the plugin in Obsidian
+2. Configure your Plunk API token in the plugin settings
+3. Add contacts to your Plunk account
+4. Start sending emails and creating campaigns!
+
+## Configuration
+
+### Plunk API Token
+Get your API token from the [Plunk Dashboard](https://app.useplunk.com/settings/api-keys).
+
+## Development
 
 ```bash
-chmod +x setup-plugin.mjs
-```
-
-When run, it will create the basic metadata and fill in the template variables.  If you don't need it, just delete it and happy hacking.
-
-Run the script with 
-
-```bash
-node setup-plugin.mjs
-```
-
-
-```
 pnpm install
-pnpm add -D esbuild @types/node builtin-modules
 pnpm build
 pnpm dev
 ```
 
-## Packages, Dependencies, Libraries:
+## Dependencies
 
-```json
-"devDependencies": {
-   "@types/node": "^24.0.12",
-   "@typescript-eslint/eslint-plugin": "8.36.0",
-   "@typescript-eslint/parser": "8.36.0",
-   "builtin-modules": "5.0.0",
-   "esbuild": "0.25.6",
-   "eslint": "^9.30.1",
-   "obsidian": "latest",
-   "tslib": "2.8.1",
-   "typescript": "5.8.3"
-},
-"dependencies": {
-   "@modelcontextprotocol/sdk": "^1.15.0",
-   "fastify": "^5.4.0",
-   "zod": "^4.0.0"
-}
-```
+- **marked**: For Markdown to HTML conversion
+- **Obsidian API**: For plugin integration
 
-## Using Symbolic Links to Test Your Plugin
+## License
 
-If you're like us, you have a directory housing all your code projects. To use your plugin as you develop it, just create a symbolic link. Here is my example, but you will need to use your own path structure:
-
-```bash
-ln -s /Users/mpstaton/code/lossless-monorepo/obsidian-plugin-starter /Users/mpstaton/content-md/lossless/.obsidian/plugins/
-```
+The Unlicense

@@ -1,9 +1,9 @@
 {
-	"id": "obsidian-plugin-starter",
-	"name": "Obsidian Starter",
-	"version": "0.0.6",
+	"id": "plunk-it",
+	"name": "Plunk It",
+	"version": "0.0.1",
 	"minAppVersion": "1.8.10",
-	"description": "This is starter code for Obsidian plugins (https://obsidian.md)",
+	"description": "Send emails and create campaigns directly from Obsidian using Plunk API",
 	"author": "The Lossless Group",
 	"authorUrl": "https://lossless.group",
 	"fundingUrl": "https://lossless.group",

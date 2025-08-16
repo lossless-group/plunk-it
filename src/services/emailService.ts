@@ -32,6 +32,19 @@ export interface CampaignConfig {
     body: string;
     apiToken: string;
     subscribedOnly?: boolean;
+    style?: string;
+    selectedClient?: string;
+}
+
+export interface UpdateCampaignConfig {
+    id: string;
+    subject: string;
+    body: string;
+    apiToken: string;
+    recipients: string[];
+    style?: string;
+    subscribedOnly?: boolean;
+    selectedClient?: string;
 }
 
 export interface CampaignResult {
@@ -54,7 +67,7 @@ export class EmailService {
     /**
      * Extract frontmatter from markdown content
      */
-    private extractFrontmatter(content: string): { frontmatter: FrontmatterData | null; body: string } {
+    extractFrontmatter(content: string): { frontmatter: FrontmatterData | null; body: string } {
         const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;
         const match = content.match(frontmatterRegex);
         
@@ -169,7 +182,7 @@ export class EmailService {
     /**
      * Get all contacts from Plunk API
      */
-    private async getAllContacts(apiToken: string, subscribedOnly: boolean = false): Promise<string[]> {
+    async getAllContacts(apiToken: string, subscribedOnly: boolean = false, selectedClient?: string): Promise<string[]> {
         try {
             const response = await fetch('https://api.useplunk.com/v1/contacts', {
                 method: 'GET',
@@ -196,9 +209,64 @@ export class EmailService {
                 console.log(`Filtered to ${contacts.length} subscribed contacts out of ${data.length} total`);
             }
 
+            // Filter contacts based on selected client if specified
+            if (selectedClient && selectedClient !== 'all') {
+                contacts = contacts.filter((contact: Contact) => {
+                    try {
+                        const contactData = contact.data ? JSON.parse(contact.data) : {};
+                        return contactData.client === selectedClient;
+                    } catch (error) {
+                        console.error('Error parsing contact data:', error);
+                        return false;
+                    }
+                });
+                console.log(`Filtered to ${contacts.length} contacts for client: ${selectedClient}`);
+            }
+
             return contacts.map((contact: Contact) => contact.id).filter(Boolean);
         } catch (error) {
             console.error('Error fetching contacts:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get unique client names from contacts
+     */
+    async getUniqueClients(apiToken: string): Promise<string[]> {
+        try {
+            const response = await fetch('https://api.useplunk.com/v1/contacts', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiToken}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`Failed to fetch contacts: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+            }
+
+            const data = await response.json();
+            
+            // Extract unique client names
+            const clients = new Set<string>();
+            data.forEach((contact: Contact) => {
+                console.log("Contact", contact);
+                try {
+                    const contactData = contact.data ? JSON.parse(contact.data) : {};
+                    if (contactData.client) {
+                        clients.add(contactData.client);
+                    }
+                } catch (error) {
+                    console.error('Error parsing contact data:', error);
+                }
+            });
+
+            return Array.from(clients).sort();
+        } catch (error) {
+            console.error('Error fetching clients:', error);
             throw error;
         }
     }
@@ -215,7 +283,7 @@ export class EmailService {
             const htmlBody = this.markdownToHtml(body);
             
             // Get all contacts
-            const recipients = await this.getAllContacts(config.apiToken, config.subscribedOnly);
+            const recipients = await this.getAllContacts(config.apiToken, config.subscribedOnly, config.selectedClient);
             
             if (recipients.length === 0) {
                 return {
@@ -229,6 +297,7 @@ export class EmailService {
                 subject: config.subject,
                 body: htmlBody,
                 recipients: recipients,
+                style: config.style || 'SANS'
             };
 
             console.log('Creating campaign with data:', {
@@ -252,7 +321,14 @@ export class EmailService {
 
             const data = await response.json();
             
-            const filterText = config.subscribedOnly ? 'subscribed ' : '';
+            let filterText = '';
+            if (config.subscribedOnly) {
+                filterText += 'subscribed ';
+            }
+            if (config.selectedClient && config.selectedClient !== 'all') {
+                filterText += `from client '${config.selectedClient}' `;
+            }
+            
             return {
                 success: true,
                 message: `Campaign created successfully! Will be sent to ${recipients.length} ${filterText}contacts.`,
@@ -267,6 +343,70 @@ export class EmailService {
             return {
                 success: false,
                 message: `Failed to create campaign: ${errorMessage}`
+            };
+        }
+    }
+
+    /**
+     * Update an existing campaign using Plunk API
+     */
+    async updateCampaign(content: string, config: UpdateCampaignConfig): Promise<CampaignResult> {
+        try {
+            // Convert markdown body to HTML
+            const htmlBody = this.markdownToHtml(content);
+            
+            // Prepare campaign update data according to Plunk API specification
+            const campaignData = {
+                id: config.id,
+                subject: config.subject,
+                body: htmlBody,
+                recipients: config.recipients,
+                style: config.style || 'SANS'
+            };
+
+            console.log('Updating campaign with data:', {
+                campaignData
+            });
+
+            // Make API request to update campaign
+            const response = await fetch(this.PLUNK_CAMPAIGN_URL, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${config.apiToken}`
+                },
+                body: JSON.stringify(campaignData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`Campaign update failed: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+            }
+
+            const data = await response.json();
+            
+            let filterText = '';
+            if (config.subscribedOnly) {
+                filterText += 'subscribed ';
+            }
+            if (config.selectedClient && config.selectedClient !== 'all') {
+                filterText += `from client '${config.selectedClient}' `;
+            }
+            
+            return {
+                success: true,
+                message: `Campaign updated successfully! Will be sent to ${config.recipients.length} ${filterText}contacts.`,
+                campaignId: config.id,
+                data
+            };
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error('Campaign update error:', error);
+            
+            return {
+                success: false,
+                message: `Failed to update campaign: ${errorMessage}`
             };
         }
     }
