@@ -31,8 +31,9 @@
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.15.0",
+		"dotenv": "^17.2.1",
 		"fastify": "^5.4.0",
-		"zod": "^4.0.0",
-		"marked": "^9.1.6"
+		"marked": "^9.1.6",
+		"zod": "^4.0.0"
 	}
 }

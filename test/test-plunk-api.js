@@ -1,14 +1,18 @@
 // Test script for Plunk API
 // Run with: node test-plunk-api.js
 
-const PLUNK_API_URL = 'https://api.useplunk.com/v1/send';
+// Load environment variables if dotenv is available
+try {
+    require('dotenv').config();
+} catch (error) {
+    console.log('dotenv not available, using process.env directly');
+}
 
-// Replace with your actual API token
-const API_TOKEN = 'sk_658a9c64884e64d84e7121b545a2e6724ffbeafda67d417f';
+const PLUNK_API_URL = 'https://api.useplunk.com/v1/send';
 
 // Test email data
 const testEmailData = {
-    to: "tanujsiripurapu@gmail.com",
+    to: process.env.TEST_EMAIL_RECIPIENT || "test@example.com",
     subject: "Test Email from Plunk API",
     body: "<h1>Hello World</h1><p>This is a test email sent via Plunk API.</p>",
     subscribed: true,
@@ -16,7 +20,27 @@ const testEmailData = {
 };
 
 async function testPlunkAPI() {
-    console.log('Testing Plunk API...');
+    console.log('🧪 Testing Plunk API...');
+    
+    // Check if PLUNK_SECRET is available
+    if (!process.env.PLUNK_SECRET) {
+        console.log('❌ PLUNK_SECRET environment variable not found');
+        console.log('Please set your PLUNK_SECRET environment variable');
+        console.log('You can create a .env file with: PLUNK_SECRET=your_secret_here');
+        return;
+    }
+
+    // Check if TEST_EMAIL_RECIPIENT is available
+    if (!process.env.TEST_EMAIL_RECIPIENT) {
+        console.log('⚠️  TEST_EMAIL_RECIPIENT environment variable not found');
+        console.log('Using default test email: test@example.com');
+        console.log('You can set TEST_EMAIL_RECIPIENT in your .env file');
+    } else {
+        console.log('✅ TEST_EMAIL_RECIPIENT found:', process.env.TEST_EMAIL_RECIPIENT);
+    }
+
+    console.log('✅ PLUNK_SECRET found');
+    console.log('📡 Making request to Plunk API...');
     console.log('API URL:', PLUNK_API_URL);
     console.log('Request data:', JSON.stringify(testEmailData, null, 2));
 
@@ -25,7 +49,7 @@ async function testPlunkAPI() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_TOKEN}`
+                'Authorization': `Bearer ${process.env.PLUNK_SECRET}`
             },
             body: JSON.stringify(testEmailData)
         });
@@ -50,11 +74,16 @@ async function testPlunkAPI() {
 
 // Alternative test with different data structure
 async function testPlunkAPIAlternative() {
-    console.log('\n--- Testing Alternative Format ---');
+    console.log('\n🧪 Testing Alternative Format ---');
+    
+    if (!process.env.PLUNK_SECRET) {
+        console.log('❌ PLUNK_SECRET not available, skipping alternative test');
+        return;
+    }
     
     // Try with different data structure
     const alternativeData = {
-        to: ["tanujsiripurapu@gmail.com"], // Try as array
+        to: [process.env.TEST_EMAIL_RECIPIENT || "test@example.com"], // Try as array
         subject: "Test Email from Plunk API",
         body: "<h1>Hello World</h1><p>This is a test email sent via Plunk API.</p>",
         subscribed: true,
@@ -68,7 +97,7 @@ async function testPlunkAPIAlternative() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_TOKEN}`
+                'Authorization': `Bearer ${process.env.PLUNK_SECRET}`
             },
             body: JSON.stringify(alternativeData)
         });
@@ -91,10 +120,15 @@ async function testPlunkAPIAlternative() {
 
 // Test with minimal data
 async function testPlunkAPIMinimal() {
-    console.log('\n--- Testing Minimal Format ---');
+    console.log('\n🧪 Testing Minimal Format ---');
+    
+    if (!process.env.PLUNK_SECRET) {
+        console.log('❌ PLUNK_SECRET not available, skipping minimal test');
+        return;
+    }
     
     const minimalData = {
-        to: "tanujsiripurapu@gmail.com",
+        to: process.env.TEST_EMAIL_RECIPIENT || "test@example.com",
         subject: "Test",
         body: "Test email"
     };
@@ -106,7 +140,7 @@ async function testPlunkAPIMinimal() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_TOKEN}`
+                'Authorization': `Bearer ${process.env.PLUNK_SECRET}`
             },
             body: JSON.stringify(minimalData)
         });
@@ -129,15 +163,13 @@ async function testPlunkAPIMinimal() {
 
 // Main execution
 async function main() {
-    if (API_TOKEN === 'YOUR_PLUNK_API_TOKEN_HERE') {
-        console.log('❌ Please replace API_TOKEN with your actual Plunk API token');
-        console.log('You can get your token from: https://useplunk.com');
-        return;
-    }
-
+    console.log('🚀 Starting Plunk API Tests\n');
+    
     await testPlunkAPI();
     await testPlunkAPIAlternative();
     await testPlunkAPIMinimal();
+    
+    console.log('\n✨ Tests completed!');
 }
 
 // Run the tests
