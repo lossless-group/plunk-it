@@ -8,6 +8,7 @@ export interface PluginSettings {
   backoffDelay: number;
   rateLimit: number;
   cacheDuration: number;
+  plunkApiToken: string;
 }
 
 export interface OpenGraphData {

@@ -373,3 +373,83 @@
 .theme-light .batch-directory-modal .batch-operation {
     background-color: var(--background-primary-alt);
 }
+
+/* Campaign Modal Styles */
+.campaign-modal-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+.campaign-modal-buttons button {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--interactive-accent);
+    border-radius: 4px;
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.campaign-modal-buttons button:hover {
+    background-color: var(--interactive-accent-hover);
+    border-color: var(--interactive-accent-hover);
+    transform: translateY(-1px);
+}
+
+.campaign-modal-buttons button.mod-warning {
+    background-color: var(--background-modifier-error);
+    border-color: var(--background-modifier-error);
+    color: var(--text-on-accent);
+}
+
+.campaign-modal-buttons button.mod-warning:hover {
+    background-color: var(--background-modifier-error-hover);
+    border-color: var(--background-modifier-error-hover);
+}
+
+/* Email Modal Button Styles */
+.email-modal-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+.email-modal-buttons button {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--interactive-accent);
+    border-radius: 4px;
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.email-modal-buttons button:hover {
+    background-color: var(--interactive-accent-hover);
+    border-color: var(--interactive-accent-hover);
+    transform: translateY(-1px);
+}
+
+.email-modal-buttons button.mod-warning {
+    background-color: var(--background-modifier-error);
+    border-color: var(--background-modifier-error);
+    color: var(--text-on-accent);
+}
+
+.email-modal-buttons button.mod-warning:hover {
+    background-color: var(--background-modifier-error-hover);
+    border-color: var(--background-modifier-error-hover);
+}

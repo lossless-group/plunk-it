@@ -5,11 +5,23 @@ import { BacklinkUrlService } from './src/services/backlinkUrlService';
 // Import your modals here  
 import { BatchDirectoryModal } from './src/modals/BatchDirectoryModal';
 import { CurrentFileModal } from './src/modals/CurrentFileModal';
+import { EmailModal } from './src/modals/EmailModal';
+import { CampaignModal } from './src/modals/CampaignModal';
+// Import your settings
+import { SettingsTab } from './src/settings/SettingsTab';
+import { PluginSettings } from './src/types';
 // Import your utilities here
 // import { yourUtility } from './src/utils/yourUtility';
 
 export default class StarterPlugin extends Plugin {
+    settings!: PluginSettings;
+
     async onload(): Promise<void> {
+        // Load settings
+        await this.loadSettings();
+        
+        // Add settings tab
+        this.addSettingTab(new SettingsTab(this.app, this));
         // Load CSS
         this.loadStyles();
         
@@ -166,6 +178,100 @@ export default class StarterPlugin extends Plugin {
                 }
             }
         });
+
+        // Add email newsletter command
+        this.addCommand({
+            id: 'send-email-newsletter',
+            name: 'Send Email',
+            editorCallback: async (editor: Editor) => {
+                try {
+                    const content = editor.getValue();
+                    if (!content.trim()) {
+                        new Notice('No content to send');
+                        return;
+                    }
+
+                    new EmailModal(this.app, content, this, (result) => {
+                        if (result.success) {
+                            new Notice(result.message, 5000);
+                        } else {
+                            new Notice(result.message, 8000);
+                        }
+                    }).open();
+                } catch (error) {
+                    const errorMsg = error instanceof Error ? error.message : String(error);
+                    new Notice('Error opening email modal: ' + errorMsg, 5000);
+                }
+            }
+        });
+
+        // Add create campaign command
+        this.addCommand({
+            id: 'create-email-campaign',
+            name: 'Create Email Campaign',
+            editorCallback: async (editor: Editor) => {
+                try {
+                    const content = editor.getValue();
+                    if (!content.trim()) {
+                        new Notice('No content to create campaign from');
+                        return;
+                    }
+
+                    new CampaignModal(this.app, content, this, async (result) => {
+                        if (result.success && result.campaignId) {
+                            // Update the file content with the campaign ID
+                            const { EmailService } = await import('./src/services/emailService');
+                            const emailService = new EmailService();
+                            const updatedContent = emailService.updateFrontmatterWithCampaignId(content, result.campaignId);
+                            editor.setValue(updatedContent);
+                            
+                            new Notice(`Campaign created successfully! Campaign ID: ${result.campaignId}`, 8000);
+                        } else {
+                            new Notice(result.message, 8000);
+                        }
+                    }).open();
+                } catch (error) {
+                    const errorMsg = error instanceof Error ? error.message : String(error);
+                    new Notice('Error opening campaign modal: ' + errorMsg, 5000);
+                }
+            }
+        });
+
+        // Add send campaign command
+        this.addCommand({
+            id: 'send-email-campaign',
+            name: 'Send Email Campaign',
+            editorCallback: async (editor: Editor) => {
+                try {
+                    const content = editor.getValue();
+                    if (!content.trim()) {
+                        new Notice('No content to send campaign from');
+                        return;
+                    }
+
+                    // Check if API token is configured
+                    if (!this.settings.plunkApiToken) {
+                        new Notice('Please configure your Plunk API token in the plugin settings first', 5000);
+                        return;
+                    }
+
+                    new Notice('Sending campaign...', 2000);
+                    
+                    const { EmailService } = await import('./src/services/emailService');
+                    const emailService = new EmailService();
+                    const result = await emailService.sendCampaign(content, this.settings.plunkApiToken);
+                    
+                    if (result.success) {
+                        new Notice(result.message, 8000);
+                    } else {
+                        new Notice(result.message, 8000);
+                    }
+                } catch (error) {
+                    const errorMsg = error instanceof Error ? error.message : String(error);
+                    new Notice('Error sending campaign: ' + errorMsg, 5000);
+                }
+            }
+        });
     }
 
     // Additional command groups can be registered here as needed
@@ -189,4 +295,20 @@ export default class StarterPlugin extends Plugin {
     //         }
     //     });
     // }
+
+    async loadSettings() {
+        this.settings = Object.assign({}, {
+            apiKey: '',
+            baseUrl: '',
+            retries: 3,
+            backoffDelay: 1000,
+            rateLimit: 10,
+            cacheDuration: 300,
+            plunkApiToken: ''
+        }, await this.loadData());
+    }
+
+    async saveSettings() {
+        await this.saveData(this.settings);
+    }
 }
