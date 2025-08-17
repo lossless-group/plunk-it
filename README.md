@@ -101,10 +101,10 @@ style: "SANS"            # email template style
 ### Optional Settings
 - **Backlink URL Base**: Base URL for converting Obsidian backlinks to web URLs
   - **Setup**: Go to Obsidian Settings → Community Plugins → Plunk It → Settings
-  - **Format**: Enter your base URL (e.g., `https://lossless.group/notes/`)
-  - **How it works**: When you use `[[Note Title]]` in your email content, it gets converted to `https://lossless.group/notes/Note%20Title`
+  - **Format**: Enter your base URL (e.g., `https://lossless.group/notes`)
+  - **How it works**: When you use `[[Note Title]]` in your email content, it gets converted to `https://lossless.group/notes/backlink?query=[[Note%20Title]]`
   - **Use cases**: Link to published notes, documentation, blog posts, or any web-accessible content
-  - **Example**: If your note is published at `https://lossless.group/notes/project-update-2024`, set the base URL to `https://lossless.group/notes/`
+  - **Example**: If your note is published at `https://lossless.group/notes/backlink?query=project-update-2024`, set the base URL to `https://lossless.group/notes`
 
 ## Workflow
 
