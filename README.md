@@ -1,6 +1,7 @@
+![Plunk It Logo](https://i.imgur.com/ZdgeY9S.png)
 # Plunk It - Obsidian Email Plugin
 
-Send emails and create campaigns directly from Obsidian using the Plunk API, with seamless frontmatter integration for campaign management.
+Send emails and create campaigns directly from Obsidian using the Plunk API, with seamless frontmatter integration for email content management.
 
 ## Features
 
@@ -22,14 +23,14 @@ Send emails and create campaigns directly from Obsidian using the Plunk API, wit
 - **Campaign Persistence**: Campaign IDs, settings, and configurations are saved in frontmatter
 
 ### 🎨 Styling Options
-- **Multiple Email Styles**: Choose from different email templates (SANS, etc.)
+- **Multiple Email Styles**: Choose from different email templates (SANS, SERIF, HTML)
 - **Custom Subjects**: Set campaign subjects that persist across sessions
 - **Consistent Branding**: Maintain consistent styling across all campaigns
 
 ## Commands
 
-### Send Email
-Send a one-off email to contacts in your Plunk account with custom styling and filtering options.
+### Send Individual Email
+Send a one-off email to any recipient with custom styling and content options.
 
 ### Create Email Campaign
 Create a new email campaign that can be reused and sent multiple times. Campaign settings are automatically saved to frontmatter:
@@ -52,7 +53,7 @@ The plugin automatically manages frontmatter properties in your markdown files:
 ```yaml
 ---
 campaignId: "camp_123456789"
-subject: "Your Campaign Subject"
+subject: "Your Email Subject"
 selectedClients: ["all"]  # or specific client names
 subscribedOnly: true      # or false
 style: "SANS"            # email template style
@@ -62,7 +63,7 @@ style: "SANS"            # email template style
 ### Frontmatter Properties
 
 - **`campaignId`**: Unique identifier for the campaign (auto-generated)
-- **`subject`**: Campaign subject line (used as campaign name)
+- **`subject`**: Email subject line (used as campaign name)
 - **`selectedClients`**: Array of client names to filter recipients
 - **`subscribedOnly`**: Boolean to filter only subscribed contacts
 - **`style`**: Email template style preference
@@ -72,7 +73,7 @@ style: "SANS"            # email template style
 1. Install the plugin in Obsidian
 2. Configure your Plunk API token in the plugin settings
 3. Add contacts to your Plunk account
-4. Start creating and sending campaigns!
+4. Start creating and sending emails!
 
 ## Configuration
 
@@ -102,6 +103,16 @@ style: "SANS"            # email template style
 2. Run "Send Email Campaign" command
 3. Optionally refresh recipients using current filters
 4. Click "Send" - campaign is sent using frontmatter settings
+
+## Use Cases
+
+This plugin is perfect for:
+- **Business Communications**: Send updates, announcements, and reports
+- **Content Marketing**: Distribute blog posts, articles, and newsletters
+- **Client Updates**: Send project updates, invoices, and status reports
+- **Personal Emails**: Send formatted personal emails with rich content
+- **Educational Content**: Distribute course materials, tutorials, and guides
+- **Event Management**: Send invitations, reminders, and follow-ups
 
 ## Development
 

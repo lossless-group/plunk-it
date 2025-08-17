@@ -34,7 +34,7 @@ export class EmailModal extends Modal {
 
     onOpen() {
         const { contentEl } = this;
-        contentEl.createEl('h2', { text: 'Send Email Newsletter' });
+        contentEl.createEl('h2', { text: 'Send Individual Email' });
 
         // Show warning if API token is not configured
         if (!this.config.apiToken) {
@@ -87,7 +87,7 @@ export class EmailModal extends Modal {
         // Subscribed setting
         new Setting(contentEl)
             .setName('Subscribed')
-            .setDesc('Mark recipient as subscribed')
+            .setDesc('Mark recipient as subscribed (sending this email adds them as a Plunk contact)')
             .addToggle(toggle => {
                 toggle.setValue(this.config.subscribed ?? true)
                     .onChange(value => {
@@ -112,6 +112,10 @@ export class EmailModal extends Modal {
 
         // Buttons
         const buttonContainer = contentEl.createEl('div', { cls: 'email-modal-buttons' });
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '8px';
+        buttonContainer.style.marginTop = '20px';
+        buttonContainer.style.justifyContent = 'flex-end';
         
         buttonContainer.createEl('button', {
             text: 'Cancel',

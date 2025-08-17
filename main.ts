@@ -28,10 +28,10 @@ export default class PlunkItPlugin extends Plugin {
     }
 
     private registerCommands(): void {
-        // Add email newsletter command
+        // Add individual email command
         this.addCommand({
             id: 'send-email-newsletter',
-            name: 'Send Email',
+            name: 'Send Individual Email',
             editorCallback: async (editor: Editor) => {
                 try {
                     const content = editor.getValue();
