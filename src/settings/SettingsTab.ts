@@ -26,5 +26,17 @@ export class SettingsTab extends PluginSettingTab {
                     this.plugin.settings.plunkApiToken = value;
                     await this.plugin.saveSettings();
                 }));
+
+        // Backlink URL Base setting
+        new Setting(containerEl)
+            .setName('Backlink URL Base')
+            .setDesc('Base URL for converting Obsidian backlinks to clickable links in emails (e.g., https://myurl.com)')
+            .addText(text => text
+                .setPlaceholder('https://myurl.com')
+                .setValue(this.plugin.settings.backlinkUrlBase)
+                .onChange(async (value) => {
+                    this.plugin.settings.backlinkUrlBase = value;
+                    await this.plugin.saveSettings();
+                }));
     }
 }

@@ -26,7 +26,9 @@ export class EmailModal extends Modal {
             to: this.emailService.getDefaultRecipient(content),
             from: '',
             apiToken: this.plugin.settings.plunkApiToken || '',
-            subscribed: true
+            subscribed: true,
+            backlinkUrlBase: this.plugin.settings.backlinkUrlBase || '',
+            style: 'SANS'
         };
     }
 
@@ -90,6 +92,21 @@ export class EmailModal extends Modal {
                 toggle.setValue(this.config.subscribed ?? true)
                     .onChange(value => {
                         this.config.subscribed = value;
+                    });
+            });
+
+        // Style setting
+        new Setting(contentEl)
+            .setName('Style')
+            .setDesc('Email styling template')
+            .addDropdown(dropdown => {
+                dropdown
+                    .addOption('SANS', 'Sans Serif')
+                    .addOption('SERIF', 'Serif')
+                    .addOption('HTML', 'HTML Email')
+                    .setValue(this.config.style || 'SANS')
+                    .onChange(value => {
+                        this.config.style = value;
                     });
             });
 

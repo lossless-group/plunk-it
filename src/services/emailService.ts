@@ -8,6 +8,8 @@ export interface EmailConfig {
     name?: string;
     subscribed?: boolean;
     apiToken: string;
+    backlinkUrlBase?: string;
+    style?: string;
 }
 
 export interface FrontmatterData {
@@ -33,7 +35,8 @@ export interface CampaignConfig {
     apiToken: string;
     subscribedOnly?: boolean;
     style?: string;
-    selectedClient?: string;
+    selectedClients?: string[];
+    backlinkUrlBase?: string;
 }
 
 export interface UpdateCampaignConfig {
@@ -44,7 +47,8 @@ export interface UpdateCampaignConfig {
     recipients: string[];
     style?: string;
     subscribedOnly?: boolean;
-    selectedClient?: string;
+    selectedClients?: string[];
+    backlinkUrlBase?: string;
 }
 
 export interface CampaignResult {
@@ -63,6 +67,14 @@ export interface Contact {
 export class EmailService {
     private readonly PLUNK_API_URL = 'https://api.useplunk.com/v1/send';
     private readonly PLUNK_CAMPAIGN_URL = 'https://api.useplunk.com/v1/campaigns';
+
+    constructor() {
+        // Configure marked options for better HTML output
+        marked.setOptions({
+            gfm: true, // GitHub Flavored Markdown
+            breaks: true, // Convert line breaks to <br>
+        });
+    }
 
     /**
      * Extract frontmatter from markdown content
@@ -87,7 +99,7 @@ export class EmailService {
                 const colonIndex = line.indexOf(':');
                 if (colonIndex > 0) {
                     const key = line.substring(0, colonIndex).trim();
-                    let value = line.substring(colonIndex + 1).trim();
+                    let value: any = line.substring(colonIndex + 1).trim();
                     
                     // Remove quotes if present
                     if ((value.startsWith('"') && value.endsWith('"')) || 
@@ -97,7 +109,25 @@ export class EmailService {
                     
                     // Handle arrays (tags, etc.)
                     if (value.startsWith('[') && value.endsWith(']')) {
-                        value = JSON.parse(value);
+                        try {
+                            // Try to parse as JSON first
+                            value = JSON.parse(value);
+                        } catch (error) {
+                            // If JSON parsing fails, try to parse as YAML-style array
+                            const arrayContent = value.slice(1, -1); // Remove [ and ]
+                            if (arrayContent.trim()) {
+                                value = arrayContent.split(',').map((item: string) => item.trim()) as any;
+                            } else {
+                                value = [] as any;
+                            }
+                        }
+                    }
+                    
+                    // Handle boolean values
+                    if (value === 'true') {
+                        value = true;
+                    } else if (value === 'false') {
+                        value = false;
                     }
                     
                     frontmatter[key] = value;
@@ -112,11 +142,42 @@ export class EmailService {
     }
 
     /**
+     * Convert Obsidian backlinks to URLs
+     */
+    private convertBacklinksToUrls(content: string, backlinkUrlBase?: string): string {
+        if (!backlinkUrlBase) {
+            return content;
+        }
+
+        // Regular expression to match Obsidian backlinks: [[text]] or [[text|display]]
+        const backlinkRegex = /\[\[([^\]]+)\]\]/g;
+        
+        return content.replace(backlinkRegex, (match, linkContent) => {
+            // Split by | to handle display text
+            const [link, display] = linkContent.split('|');
+            const displayText = display || link;
+            
+            // Encode the backlink for URL
+            const encodedLink = encodeURIComponent(match);
+            
+            // Construct the URL
+            const url = `${backlinkUrlBase}/backlink?query=${encodedLink}`;
+            
+            // Return as markdown link
+            return `[${displayText}](${url})`;
+        });
+    }
+
+    /**
      * Convert markdown to HTML
      */
-    private markdownToHtml(markdown: string): string {
+    private markdownToHtml(markdown: string, backlinkUrlBase?: string): string {
         try {
-            return marked(markdown);
+            // First convert backlinks to URLs
+            const processedMarkdown = this.convertBacklinksToUrls(markdown, backlinkUrlBase);
+            
+            // Then convert to HTML
+            return marked(processedMarkdown);
         } catch (error) {
             console.error('Error converting markdown to HTML:', error);
             return markdown;
@@ -132,7 +193,7 @@ export class EmailService {
             const { frontmatter, body } = this.extractFrontmatter(content);
             
             // Convert markdown body to HTML
-            const htmlBody = this.markdownToHtml(body);
+            const htmlBody = this.markdownToHtml(body, config.backlinkUrlBase);
             
             // Prepare email data - Plunk API expects 'to' as an array
             const emailData = {
@@ -141,6 +202,7 @@ export class EmailService {
                 body: htmlBody,
                 subscribed: config.subscribed ?? true,
                 name: config.name || frontmatter?.author || 'Newsletter',
+                style: config.style || 'SANS'
             };
 
             console.log(emailData);
@@ -182,7 +244,7 @@ export class EmailService {
     /**
      * Get all contacts from Plunk API
      */
-    async getAllContacts(apiToken: string, subscribedOnly: boolean = false, selectedClient?: string): Promise<string[]> {
+    async getAllContacts(apiToken: string, subscribedOnly: boolean = false, selectedClients?: string[]): Promise<string[]> {
         try {
             const response = await fetch('https://api.useplunk.com/v1/contacts', {
                 method: 'GET',
@@ -209,18 +271,18 @@ export class EmailService {
                 console.log(`Filtered to ${contacts.length} subscribed contacts out of ${data.length} total`);
             }
 
-            // Filter contacts based on selected client if specified
-            if (selectedClient && selectedClient !== 'all') {
+            // Filter contacts based on selected clients if specified
+            if (selectedClients && selectedClients.length > 0 && !selectedClients.includes('all')) {
                 contacts = contacts.filter((contact: Contact) => {
                     try {
                         const contactData = contact.data ? JSON.parse(contact.data) : {};
-                        return contactData.client === selectedClient;
+                        return selectedClients.includes(contactData.client);
                     } catch (error) {
                         console.error('Error parsing contact data:', error);
                         return false;
                     }
                 });
-                console.log(`Filtered to ${contacts.length} contacts for client: ${selectedClient}`);
+                console.log(`Filtered to ${contacts.length} contacts for clients: ${selectedClients.join(', ')}`);
             }
 
             return contacts.map((contact: Contact) => contact.id).filter(Boolean);
@@ -280,10 +342,10 @@ export class EmailService {
             const { body } = this.extractFrontmatter(content);
             
             // Convert markdown body to HTML
-            const htmlBody = this.markdownToHtml(body);
+            const htmlBody = this.markdownToHtml(body, config.backlinkUrlBase);
             
             // Get all contacts
-            const recipients = await this.getAllContacts(config.apiToken, config.subscribedOnly, config.selectedClient);
+            const recipients = await this.getAllContacts(config.apiToken, config.subscribedOnly, config.selectedClients);
             
             if (recipients.length === 0) {
                 return {
@@ -325,8 +387,8 @@ export class EmailService {
             if (config.subscribedOnly) {
                 filterText += 'subscribed ';
             }
-            if (config.selectedClient && config.selectedClient !== 'all') {
-                filterText += `from client '${config.selectedClient}' `;
+            if (config.selectedClients && config.selectedClients.length > 0 && !config.selectedClients.includes('all')) {
+                filterText += `from clients: ${config.selectedClients.join(', ')} `;
             }
             
             return {
@@ -352,8 +414,11 @@ export class EmailService {
      */
     async updateCampaign(content: string, config: UpdateCampaignConfig): Promise<CampaignResult> {
         try {
+            // Extract frontmatter and body
+            const { body } = this.extractFrontmatter(content);
+            
             // Convert markdown body to HTML
-            const htmlBody = this.markdownToHtml(content);
+            const htmlBody = this.markdownToHtml(body, config.backlinkUrlBase);
             
             // Prepare campaign update data according to Plunk API specification
             const campaignData = {
@@ -389,8 +454,8 @@ export class EmailService {
             if (config.subscribedOnly) {
                 filterText += 'subscribed ';
             }
-            if (config.selectedClient && config.selectedClient !== 'all') {
-                filterText += `from client '${config.selectedClient}' `;
+            if (config.selectedClients && config.selectedClients.length > 0 && !config.selectedClients.includes('all')) {
+                filterText += `from clients: ${config.selectedClients.join(', ')} `;
             }
             
             return {
@@ -501,13 +566,78 @@ export class EmailService {
     }
 
     /**
+     * Update frontmatter with selected clients
+     */
+    updateFrontmatterWithSelectedClients(content: string, selectedClients: string[]): string {
+        const { frontmatter, body } = this.extractFrontmatter(content);
+        
+        // Create updated frontmatter, ensuring selectedClients overwrites any existing value
+        const updatedFrontmatter = {
+            ...(frontmatter || {}),
+            selectedClients: selectedClients
+        };
+        
+        // Remove any old selectedClient property if it exists
+        if ('selectedClient' in updatedFrontmatter) {
+            delete (updatedFrontmatter as any).selectedClient;
+        }
+        
+        // Convert frontmatter back to YAML string
+        const frontmatterLines = Object.entries(updatedFrontmatter).map(([key, value]) => {
+            if (Array.isArray(value)) {
+                return `${key}: ${JSON.stringify(value)}`;
+            }
+            return `${key}: ${value}`;
+        });
+        
+        const frontmatterString = frontmatterLines.join('\n');
+        
+        // Reconstruct the content with updated frontmatter
+        return `---\n${frontmatterString}\n---\n\n${body}`;
+    }
+
+    /**
+     * Update frontmatter with multiple properties
+     */
+    updateFrontmatterWithProperties(content: string, properties: Record<string, any>): string {
+        const { frontmatter, body } = this.extractFrontmatter(content);
+        
+        // Create updated frontmatter, merging with existing properties
+        const updatedFrontmatter = {
+            ...(frontmatter || {}),
+            ...properties
+        };
+        
+        // Remove any old selectedClient property if it exists and we're updating selectedClients
+        if (properties.selectedClients && 'selectedClient' in updatedFrontmatter) {
+            delete (updatedFrontmatter as any).selectedClient;
+        }
+        
+        // Convert frontmatter back to YAML string
+        const frontmatterLines = Object.entries(updatedFrontmatter).map(([key, value]) => {
+            if (Array.isArray(value)) {
+                return `${key}: ${JSON.stringify(value)}`;
+            }
+            if (typeof value === 'boolean') {
+                return `${key}: ${value}`;
+            }
+            return `${key}: ${value}`;
+        });
+        
+        const frontmatterString = frontmatterLines.join('\n');
+        
+        // Reconstruct the content with updated frontmatter
+        return `---\n${frontmatterString}\n---\n\n${body}`;
+    }
+
+    /**
      * Get default subject from frontmatter or content
      */
     getDefaultSubject(content: string): string {
         const { frontmatter } = this.extractFrontmatter(content);
         
-        if (frontmatter?.title) {
-            return frontmatter.title;
+        if (frontmatter?.subject) {
+            return frontmatter.subject;
         }
         
         // Extract first heading if no title in frontmatter
@@ -527,22 +657,5 @@ export class EmailService {
         return frontmatter?.email || '';
     }
 
-    /**
-     * Get default campaign name from frontmatter or content
-     */
-    getDefaultCampaignName(content: string): string {
-        const { frontmatter } = this.extractFrontmatter(content);
-        
-        if (frontmatter?.title) {
-            return frontmatter.title;
-        }
-        
-        // Extract first heading if no title in frontmatter
-        const headingMatch = content.match(/^#\s+(.+)$/m);
-        if (headingMatch && headingMatch[1]) {
-            return headingMatch[1];
-        }
-        
-        return 'Newsletter Campaign';
-    }
+
 }

@@ -71,8 +71,11 @@ export default class PlunkItPlugin extends Plugin {
                             // Update the file content with the campaign ID
                             const { EmailService } = await import('./src/services/emailService');
                             const emailService = new EmailService();
-                            const updatedContent = emailService.updateFrontmatterWithCampaignId(content, result.campaignId);
-                            editor.setValue(updatedContent);
+                            
+                            // Use the updated content that already has selectedClients if available
+                            const contentToUpdate = (result as any).updatedContent || content;
+                            const finalContent = emailService.updateFrontmatterWithCampaignId(contentToUpdate, result.campaignId);
+                            editor.setValue(finalContent);
                             
                             new Notice(`Campaign created successfully! Campaign ID: ${result.campaignId}`, 8000);
                         } else {
@@ -153,7 +156,8 @@ export default class PlunkItPlugin extends Plugin {
 
     async loadSettings() {
         this.settings = Object.assign({}, {
-            plunkApiToken: ''
+            plunkApiToken: '',
+            backlinkUrlBase: ''
         }, await this.loadData());
     }
 

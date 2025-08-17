@@ -1,4 +1,4 @@
-import { App, Modal, Setting } from 'obsidian';
+import { App, Modal, Setting, MarkdownView } from 'obsidian';
 import { EmailService, CampaignConfig } from '../services/emailService';
 
 export class CampaignModal extends Modal {
@@ -8,6 +8,7 @@ export class CampaignModal extends Modal {
     private onSubmit: (result: { success: boolean; message: string; campaignId?: string }) => void;
     private plugin: any; // Will be the main plugin instance
     private availableClients: string[] = [];
+    private clientCheckboxes: Array<{ client: string; setting: { controlEl: HTMLDivElement } }> = [];
 
     constructor(
         app: App, 
@@ -21,13 +22,18 @@ export class CampaignModal extends Modal {
         this.plugin = plugin;
         this.onSubmit = onSubmit;
         
+        // Extract frontmatter to get saved selected client
+        const { frontmatter } = this.emailService.extractFrontmatter(content);
+        
         // Set default values from content and settings
         this.config = {
-            name: this.emailService.getDefaultCampaignName(content),
-            subject: this.emailService.getDefaultSubject(content),
+            name: frontmatter?.subject || this.emailService.getDefaultSubject(content),
+            subject: frontmatter?.subject || this.emailService.getDefaultSubject(content),
             apiToken: this.plugin.settings.plunkApiToken || '',
-            style: 'SANS',
-            selectedClient: 'all'
+            style: frontmatter?.style || 'SANS',
+            selectedClients: this.getSelectedClientsFromFrontmatter(frontmatter) || ['all'],
+            subscribedOnly: frontmatter?.subscribedOnly ?? false,
+            backlinkUrlBase: this.plugin.settings.backlinkUrlBase || ''
         };
     }
 
@@ -55,17 +61,7 @@ export class CampaignModal extends Modal {
             }
         }
 
-        // Campaign name setting
-        new Setting(contentEl)
-            .setName('Campaign Name')
-            .setDesc('Name for your campaign')
-            .addText(text => {
-                text.setPlaceholder('My Newsletter Campaign')
-                    .setValue(this.config.name || '')
-                    .onChange(value => {
-                        this.config.name = value;
-                    });
-            });
+
 
         // Subject setting
         new Setting(contentEl)
@@ -91,23 +87,79 @@ export class CampaignModal extends Modal {
             });
 
         // Client filter setting
-        new Setting(contentEl)
-            .setName('Client Filter')
-            .setDesc('Send to contacts from a specific client only')
-            .addDropdown(dropdown => {
-                // Add "All Clients" option
-                dropdown.addOption('all', 'All Clients');
-                
-                // Add client options
-                this.availableClients.forEach(client => {
-                    dropdown.addOption(client, client);
-                });
-                
-                dropdown.setValue(this.config.selectedClient || 'all')
-                    .onChange(value => {
-                        this.config.selectedClient = value;
-                    });
+        const clientFilterContainer = contentEl.createEl('div', { cls: 'setting-item' });
+        
+        // Create a container for name and description to stack them vertically
+        const nameDescriptionContainer = clientFilterContainer.createEl('div');
+        nameDescriptionContainer.style.display = 'flex';
+        nameDescriptionContainer.style.flexDirection = 'column';
+        nameDescriptionContainer.style.gap = '4px';
+        
+        nameDescriptionContainer.createEl('div', { 
+            cls: 'setting-item-name',
+            text: 'Client Filter'
+        });
+        
+        nameDescriptionContainer.createEl('div', { 
+            cls: 'setting-item-description',
+            text: 'Send to contacts from specific clients'
+        });
+        
+        // Create a vertical container for checkboxes
+        const checkboxContainer = clientFilterContainer.createEl('div', { cls: 'setting-item-control' });
+        checkboxContainer.style.display = 'flex';
+        checkboxContainer.style.flexDirection = 'column';
+        checkboxContainer.style.gap = '8px';
+
+        // All Clients checkbox
+        const allClientsDiv = checkboxContainer.createEl('div', { cls: 'setting-item' });
+        allClientsDiv.style.display = 'flex';
+        allClientsDiv.style.alignItems = 'center';
+        allClientsDiv.style.gap = '8px';
+        allClientsDiv.createEl('div', { cls: 'setting-item-name', text: 'All Clients' });
+        const allClientsControl = allClientsDiv.createEl('div', { cls: 'setting-item-control' });
+        const allClientsToggle = allClientsControl.createEl('input', { type: 'checkbox' });
+        allClientsToggle.checked = this.config.selectedClients?.includes('all') || false;
+        allClientsToggle.addEventListener('change', (e) => {
+            const target = e.target as HTMLInputElement;
+            if (target.checked) {
+                // If "All Clients" is selected, clear other selections
+                this.config.selectedClients = ['all'];
+                this.updateClientCheckboxes();
+            } else {
+                // Remove "all" from selection
+                this.config.selectedClients = this.config.selectedClients?.filter(client => client !== 'all') || [];
+                this.updateClientCheckboxes();
+            }
+        });
+
+        // Individual client checkboxes
+        this.clientCheckboxes = [];
+        this.availableClients.forEach(client => {
+            const clientDiv = checkboxContainer.createEl('div', { cls: 'setting-item' });
+            clientDiv.style.display = 'flex';
+            clientDiv.style.alignItems = 'center';
+            clientDiv.style.gap = '8px';
+            clientDiv.createEl('div', { cls: 'setting-item-name', text: client });
+            const clientControl = clientDiv.createEl('div', { cls: 'setting-item-control' });
+            const clientToggle = clientControl.createEl('input', { type: 'checkbox' });
+            clientToggle.checked = this.config.selectedClients?.includes(client) || false;
+            clientToggle.addEventListener('change', (e) => {
+                const target = e.target as HTMLInputElement;
+                if (target.checked) {
+                    // Add client to selection and remove "all" if it was selected
+                    this.config.selectedClients = this.config.selectedClients?.filter(c => c !== 'all') || [];
+                    this.config.selectedClients.push(client);
+                    allClientsToggle.checked = false;
+                    this.updateClientCheckboxes();
+                } else {
+                    // Remove client from selection
+                    this.config.selectedClients = this.config.selectedClients?.filter(c => c !== client) || [];
+                    this.updateClientCheckboxes();
+                }
             });
+            this.clientCheckboxes.push({ client, setting: { controlEl: clientControl } });
+        });
 
         // Style setting
         new Setting(contentEl)
@@ -127,13 +179,17 @@ export class CampaignModal extends Modal {
         // Info about recipients
         const infoEl = contentEl.createEl('div', { 
             cls: 'setting-item-description',
-            text: `ℹ️ This campaign will be sent to contacts in your Plunk account${this.config.selectedClient && this.config.selectedClient !== 'all' ? ` from client: ${this.config.selectedClient}` : ''}.`
+            text: `ℹ️ This campaign will be sent to contacts in your Plunk account${this.config.selectedClients && this.config.selectedClients.length > 0 && !this.config.selectedClients.includes('all') ? ` from clients: ${this.config.selectedClients.join(', ')}` : ''}.`
         });
         infoEl.style.color = 'var(--text-muted)';
         infoEl.style.fontStyle = 'italic';
 
         // Buttons
         const buttonContainer = contentEl.createEl('div', { cls: 'campaign-modal-buttons' });
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '8px';
+        buttonContainer.style.marginTop = '20px';
+        buttonContainer.style.justifyContent = 'flex-end';
         
         buttonContainer.createEl('button', {
             text: 'Cancel',
@@ -158,22 +214,80 @@ export class CampaignModal extends Modal {
             this.onSubmit({ success: false, message: 'API token is required' });
             return;
         }
-        if (!this.config.name) {
-            this.onSubmit({ success: false, message: 'Campaign name is required' });
-            return;
-        }
+
         if (!this.config.subject) {
             this.onSubmit({ success: false, message: 'Subject is required' });
             return;
         }
 
         try {
+            // Save selected clients, subject, and title to frontmatter before creating campaign
+            this.saveCampaignPropertiesToFrontmatter();
+            
+            // Use the updated content that now includes all properties in frontmatter
             const result = await this.emailService.createCampaign(this.content, this.config as CampaignConfig);
-            this.onSubmit(result);
+            
+            // Pass the updated content along with the result
+            if (result.success && result.campaignId) {
+                this.onSubmit({ ...result, updatedContent: this.content } as any);
+            } else {
+                this.onSubmit(result);
+            }
             this.close();
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             this.onSubmit({ success: false, message: `Error: ${errorMessage}` });
+        }
+    }
+
+    private updateClientCheckboxes() {
+        this.clientCheckboxes.forEach(({ client, setting }) => {
+            const toggle = setting.controlEl.querySelector('input') as HTMLInputElement;
+            toggle.checked = this.config.selectedClients?.includes(client) || false;
+        });
+    }
+
+    private getSelectedClientsFromFrontmatter(frontmatter: any): string[] {
+        // Handle migration from old selectedClient to new selectedClients
+        if (frontmatter?.selectedClients) {
+            return Array.isArray(frontmatter.selectedClients) ? frontmatter.selectedClients : [frontmatter.selectedClients];
+        }
+        if (frontmatter?.selectedClient) {
+            return [frontmatter.selectedClient];
+        }
+        return ['all'];
+    }
+
+
+
+    private saveCampaignPropertiesToFrontmatter() {
+        // Prepare properties to save to frontmatter
+        const properties: Record<string, any> = {
+            selectedClients: this.config.selectedClients || ['all']
+        };
+
+        // Add subject if provided
+        if (this.config.subject) {
+            properties.subject = this.config.subject;
+        }
+
+        // Add subscribedOnly setting if it's different from default
+        if (this.config.subscribedOnly !== undefined) {
+            properties.subscribedOnly = this.config.subscribedOnly;
+        }
+
+        // Add style if it's different from default
+        if (this.config.style && this.config.style !== 'SANS') {
+            properties.style = this.config.style;
+        }
+
+        // Update the content with all properties in frontmatter
+        this.content = this.emailService.updateFrontmatterWithProperties(this.content, properties);
+        
+        // Update the current file in Obsidian
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (activeView && activeView.file) {
+            this.app.vault.modify(activeView.file, this.content);
         }
     }
 

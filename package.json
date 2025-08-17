@@ -32,6 +32,7 @@
 		"typescript": "5.8.3"
 	},
 	"dependencies": {
+		"dotenv": "^17.2.1",
 		"marked": "^9.1.6"
 	}
 }

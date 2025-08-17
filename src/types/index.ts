@@ -3,6 +3,7 @@ import { Plugin } from 'obsidian';
 
 export interface PluginSettings {
   plunkApiToken: string;
+  backlinkUrlBase: string;
 }
 
 export interface PlunkItPlugin extends Plugin {

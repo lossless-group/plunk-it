@@ -9,10 +9,12 @@ export class SendCampaignModal extends Modal {
         campaignId: string;
         updateRecipients: boolean;
         subscribedOnly: boolean;
-        selectedClient: string;
+        selectedClients: string[];
+        backlinkUrlBase: string;
     };
     private onSubmit: (result: { success: boolean; message: string; campaignId?: string }) => void;
     private plugin: any; // Will be the main plugin instance
+
 
     constructor(
         app: App, 
@@ -26,7 +28,7 @@ export class SendCampaignModal extends Modal {
         this.plugin = plugin;
         this.onSubmit = onSubmit;
         
-        // Extract campaign ID from frontmatter
+        // Extract campaign ID and filters from frontmatter
         const { frontmatter } = this.emailService.extractFrontmatter(content);
         const campaignId = frontmatter?.campaignId;
         
@@ -34,9 +36,10 @@ export class SendCampaignModal extends Modal {
         this.config = {
             apiToken: this.plugin.settings.plunkApiToken || '',
             campaignId: campaignId || '',
-            updateRecipients: false,
-            subscribedOnly: false,
-            selectedClient: 'all'
+            updateRecipients: true,
+            subscribedOnly: frontmatter?.subscribedOnly ?? false,
+            selectedClients: this.getSelectedClientsFromFrontmatter(frontmatter) || ['all'],
+            backlinkUrlBase: this.plugin.settings.backlinkUrlBase || ''
         };
     }
 
@@ -76,56 +79,22 @@ export class SendCampaignModal extends Modal {
         // Update recipients before sending setting
         new Setting(contentEl)
             .setName('Update Recipients Before Sending')
-            .setDesc('Refresh the recipient list with current contacts before sending the campaign')
+            .setDesc('Refresh the recipient list with current contacts using existing filters from frontmatter')
             .addToggle(toggle => {
                 toggle.setValue(this.config.updateRecipients)
                     .onChange(value => {
                         this.config.updateRecipients = value;
-                        // Show/hide subscribed and client settings based on this toggle
-                        subscribedSetting.settingEl.style.display = value ? 'block' : 'none';
-                        clientSetting.settingEl.style.display = value ? 'block' : 'none';
                     });
             });
 
-        // Subscribed users filter setting (only shown if update recipients is enabled)
-        const subscribedSetting = new Setting(contentEl)
-            .setName('Send to Subscribed Users Only')
-            .setDesc('Only send to contacts who are subscribed to your emails (subscribed users are okay with marketing/non-critical mail)')
-            .addToggle(toggle => {
-                toggle.setValue(this.config.subscribedOnly)
-                    .onChange(value => {
-                        this.config.subscribedOnly = value;
-                    });
-            });
-
-        // Client filter setting (only shown if update recipients is enabled)
-        const clientSetting = new Setting(contentEl)
-            .setName('Client Filter')
-            .setDesc('Send to contacts from a specific client only')
-            .addDropdown(dropdown => {
-                // Add "All Clients" option
-                dropdown.addOption('all', 'All Clients');
-                
-                // Load available clients if API token is configured
-                if (this.config.apiToken) {
-                    this.emailService.getUniqueClients(this.config.apiToken).then(clients => {
-                        clients.forEach(client => {
-                            dropdown.addOption(client, client);
-                        });
-                    }).catch(error => {
-                        console.error('Failed to load clients:', error);
-                    });
-                }
-                
-                dropdown.setValue(this.config.selectedClient || 'all')
-                    .onChange(value => {
-                        this.config.selectedClient = value;
-                    });
-            });
-
-        // Initially hide the subscribed and client settings if update recipients is disabled
-        subscribedSetting.settingEl.style.display = this.config.updateRecipients ? 'block' : 'none';
-        clientSetting.settingEl.style.display = this.config.updateRecipients ? 'block' : 'none';
+        // Show current filters info
+        const filtersInfoEl = contentEl.createEl('div', { 
+            cls: 'setting-item-description',
+            text: this.getFiltersInfoText()
+        });
+        filtersInfoEl.style.color = 'var(--text-muted)';
+        filtersInfoEl.style.fontStyle = 'italic';
+        filtersInfoEl.style.marginTop = '8px';
 
         // Info about sending
         const infoEl = contentEl.createEl('div', { 
@@ -137,6 +106,10 @@ export class SendCampaignModal extends Modal {
 
         // Buttons
         const buttonContainer = contentEl.createEl('div', { cls: 'campaign-modal-buttons' });
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '8px';
+        buttonContainer.style.marginTop = '20px';
+        buttonContainer.style.justifyContent = 'flex-end';
         
         buttonContainer.createEl('button', {
             text: 'Cancel',
@@ -167,16 +140,16 @@ export class SendCampaignModal extends Modal {
         try {
             // If update recipients is enabled, update the campaign first
             if (this.config.updateRecipients) {
-                // Get all contacts for recipients (filtered by subscribed status and client if requested)
-                const recipients = await this.emailService.getAllContacts(this.config.apiToken, this.config.subscribedOnly, this.config.selectedClient);
+                // Get all contacts for recipients (filtered by subscribed status and clients if requested)
+                const recipients = await this.emailService.getAllContacts(this.config.apiToken, this.config.subscribedOnly, this.config.selectedClients || []);
                 
                 if (recipients.length === 0) {
                     let filterText = '';
                     if (this.config.subscribedOnly) {
                         filterText += 'subscribed ';
                     }
-                    if (this.config.selectedClient && this.config.selectedClient !== 'all') {
-                        filterText += `from client '${this.config.selectedClient}' `;
+                    if (this.config.selectedClients && this.config.selectedClients.length > 0 && !this.config.selectedClients.includes('all')) {
+                        filterText += `from clients: ${this.config.selectedClients.join(', ')} `;
                     }
                     this.onSubmit({ success: false, message: `No ${filterText}contacts found. Please add some contacts to your Plunk account first.` });
                     return;
@@ -192,6 +165,7 @@ export class SendCampaignModal extends Modal {
                     body: body,
                     apiToken: this.config.apiToken,
                     recipients: recipients,
+                    backlinkUrlBase: this.config.backlinkUrlBase
                 });
 
                 if (!updateResult.success) {
@@ -208,6 +182,35 @@ export class SendCampaignModal extends Modal {
             const errorMessage = error instanceof Error ? error.message : String(error);
             this.onSubmit({ success: false, message: `Error: ${errorMessage}` });
         }
+    }
+
+    private getSelectedClientsFromFrontmatter(frontmatter: any): string[] {
+        // Handle migration from old selectedClient to new selectedClients
+        if (frontmatter?.selectedClients) {
+            return Array.isArray(frontmatter.selectedClients) ? frontmatter.selectedClients : [frontmatter.selectedClients];
+        }
+        if (frontmatter?.selectedClient) {
+            return [frontmatter.selectedClient];
+        }
+        return ['all'];
+    }
+
+    private getFiltersInfoText(): string {
+        let filters = [];
+        
+        if (this.config.subscribedOnly) {
+            filters.push('subscribed users only');
+        }
+        
+        if (this.config.selectedClients && this.config.selectedClients.length > 0 && !this.config.selectedClients.includes('all')) {
+            filters.push(`clients: ${this.config.selectedClients.join(', ')}`);
+        }
+        
+        if (filters.length === 0) {
+            return 'ℹ️ Current filters: All contacts';
+        }
+        
+        return `ℹ️ Current filters: ${filters.join(', ')}`;
     }
 
     onClose() {
