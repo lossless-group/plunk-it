@@ -1,5 +1,4 @@
 // Test script to verify frontmatter client saving and loading
-const fs = require('fs');
 
 // Mock the extractFrontmatter function
 function extractFrontmatter(content) {

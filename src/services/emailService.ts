@@ -205,7 +205,7 @@ export class EmailService {
                 style: config.style || 'SANS'
             };
 
-            console.log(emailData);
+            console.log("Sending transcational email with data", emailData);
 
             // Make API request - exactly as specified
             const response = await fetch(this.PLUNK_API_URL, {
@@ -262,7 +262,7 @@ export class EmailService {
             const data = await response.json();
             
             // Extract contact emails from the response
-            console.log("Received contacts", data);
+            console.log("Received contacts:", data);
             
             // Filter contacts based on subscribed status if requested
             let contacts: Contact[] = data;
@@ -315,10 +315,10 @@ export class EmailService {
             // Extract unique client names
             const clients = new Set<string>();
             data.forEach((contact: Contact) => {
-                console.log("Contact", contact);
                 try {
                     const contactData = contact.data ? JSON.parse(contact.data) : {};
                     if (contactData.client) {
+                        console.log("Extracting client", contactData.client);
                         clients.add(contactData.client);
                     }
                 } catch (error) {
@@ -547,9 +547,6 @@ export class EmailService {
             ...(frontmatter || {}),
             campaignId: campaignId
         };
-        
-        // Preserve existing frontmatter data
-        console.log('Updating frontmatter with campaign ID:', campaignId);
         
         // Convert frontmatter back to YAML string
         const frontmatterLines = Object.entries(updatedFrontmatter).map(([key, value]) => {

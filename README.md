@@ -13,6 +13,20 @@ Send emails and create campaigns directly from Obsidian using the Plunk API, wit
 
 ### 🎯 Advanced Filtering
 - **Client Filtering**: Filter contacts by specific clients or send to all contacts
+  - Clients are defined by Plunk contact metadata in the `data` field
+  - Example contact data structure:
+    ```json
+    {
+      "id": "5abe1f8f-108c-40c9-85c3-30b60340ae8f",
+      "email": "hypernova@tanuj.xyz",
+      "subscribed": true,
+      "data": "{\"client\":\"hypernova\"}",
+      "createdAt": "2025-08-17T02:16:34.809Z",
+      "updatedAt": "2025-08-17T02:16:34.813Z"
+    }
+    ```
+  - The `data` field contains JSON with client information (e.g., `{"client":"hypernova"}`)
+  - You can filter campaigns to send only to contacts from specific clients
 - **Subscription Filtering**: Send only to subscribed contacts or include unsubscribed users
 - **Dynamic Recipient Updates**: Refresh recipient lists before sending campaigns
 
@@ -20,6 +34,10 @@ Send emails and create campaigns directly from Obsidian using the Plunk API, wit
 - **Markdown Support**: Write emails in Markdown with automatic HTML conversion
 - **Frontmatter Integration**: All campaign settings are automatically saved to file frontmatter
 - **Backlink Conversion**: Automatic conversion of Obsidian backlinks to URLs
+  - Converts `[[Internal Note]]` to clickable web URLs
+  - Uses your configured base URL (e.g., `https://lossless.group/notes/`)
+  - Example: `[[Project Update]]` becomes `https://lossless.group/notes/backlink?query=[[Project%20Update]]`
+  - Perfect for linking to published notes, documentation, or blog posts
 - **Campaign Persistence**: Campaign IDs, settings, and configurations are saved in frontmatter
 
 ### 🎨 Styling Options
@@ -64,7 +82,7 @@ style: "SANS"            # email template style
 
 - **`campaignId`**: Unique identifier for the campaign (auto-generated)
 - **`subject`**: Email subject line (used as campaign name)
-- **`selectedClients`**: Array of client names to filter recipients
+- **`selectedClients`**: Array of client names to filter recipients (e.g., `["hypernova", "acme"]` or `["all"]`)
 - **`subscribedOnly`**: Boolean to filter only subscribed contacts
 - **`style`**: Email template style preference
 
@@ -82,6 +100,11 @@ style: "SANS"            # email template style
 
 ### Optional Settings
 - **Backlink URL Base**: Base URL for converting Obsidian backlinks to web URLs
+  - **Setup**: Go to Obsidian Settings → Community Plugins → Plunk It → Settings
+  - **Format**: Enter your base URL (e.g., `https://lossless.group/notes/`)
+  - **How it works**: When you use `[[Note Title]]` in your email content, it gets converted to `https://lossless.group/notes/Note%20Title`
+  - **Use cases**: Link to published notes, documentation, blog posts, or any web-accessible content
+  - **Example**: If your note is published at `https://lossless.group/notes/project-update-2024`, set the base URL to `https://lossless.group/notes/`
 
 ## Workflow
 
