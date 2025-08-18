@@ -22,7 +22,7 @@ export class CampaignModal extends Modal {
         this.plugin = plugin;
         this.onSubmit = onSubmit;
         
-        // Extract frontmatter to get saved selected client
+        // Extract frontmatter to get saved selected ${this.config.filterKey || 'client'}
         const { frontmatter } = this.emailService.extractFrontmatter(content);
         
         // Set default values from content and settings
@@ -33,7 +33,8 @@ export class CampaignModal extends Modal {
             style: frontmatter?.style || 'SANS',
             selectedClients: this.getSelectedClientsFromFrontmatter(frontmatter) || ['all'],
             subscribedOnly: frontmatter?.subscribedOnly ?? false,
-            backlinkUrlBase: this.plugin.settings.backlinkUrlBase || ''
+            backlinkUrlBase: this.plugin.settings.backlinkUrlBase || '',
+            filterKey: this.plugin.settings.filterKey || 'client'
         };
     }
 
@@ -51,12 +52,12 @@ export class CampaignModal extends Modal {
             warningEl.style.fontWeight = 'bold';
         }
 
-        // Load available clients if API token is configured
+        // Load available ${this.config.filterKey || 'client'}s if API token is configured
         if (this.config.apiToken) {
             try {
-                this.availableClients = await this.emailService.getUniqueClients(this.config.apiToken);
+                this.availableClients = await this.emailService.getUniqueClients(this.config.apiToken, this.plugin.settings.filterKey);
             } catch (error) {
-                console.error('Failed to load clients:', error);
+                console.error(`Failed to load ${this.config.filterKey || 'client'}s:`, error);
                 this.availableClients = [];
             }
         }
@@ -86,7 +87,7 @@ export class CampaignModal extends Modal {
                     });
             });
 
-        // Client filter setting
+        // ${this.config.filterKey || 'Client'} filter setting
         const clientFilterContainer = contentEl.createEl('div', { cls: 'setting-item' });
         
         // Create a container for name and description to stack them vertically
@@ -97,12 +98,12 @@ export class CampaignModal extends Modal {
         
         nameDescriptionContainer.createEl('div', { 
             cls: 'setting-item-name',
-            text: 'Client Filter'
+            text: `${this.config.filterKey || 'Client'} Filter`
         });
         
         nameDescriptionContainer.createEl('div', { 
             cls: 'setting-item-description',
-            text: 'Send to contacts from specific clients'
+            text: `Send to contacts from specific ${this.config.filterKey || 'client'}s`
         });
         
         // Create a vertical container for checkboxes
@@ -111,19 +112,19 @@ export class CampaignModal extends Modal {
         checkboxContainer.style.flexDirection = 'column';
         checkboxContainer.style.gap = '8px';
 
-        // All Clients checkbox
+        // All ${this.config.filterKey || 'Client'}s checkbox
         const allClientsDiv = checkboxContainer.createEl('div', { cls: 'setting-item' });
         allClientsDiv.style.display = 'flex';
         allClientsDiv.style.alignItems = 'center';
         allClientsDiv.style.gap = '8px';
-        allClientsDiv.createEl('div', { cls: 'setting-item-name', text: 'All Clients' });
+        allClientsDiv.createEl('div', { cls: 'setting-item-name', text: `All ${this.config.filterKey || 'Client'}s` });
         const allClientsControl = allClientsDiv.createEl('div', { cls: 'setting-item-control' });
         const allClientsToggle = allClientsControl.createEl('input', { type: 'checkbox' });
         allClientsToggle.checked = this.config.selectedClients?.includes('all') || false;
         allClientsToggle.addEventListener('change', (e) => {
             const target = e.target as HTMLInputElement;
             if (target.checked) {
-                // If "All Clients" is selected, clear other selections
+                // If "All ${this.config.filterKey || 'Client'}s" is selected, clear other selections
                 this.config.selectedClients = ['all'];
                 this.updateClientCheckboxes();
             } else {
@@ -133,7 +134,7 @@ export class CampaignModal extends Modal {
             }
         });
 
-        // Individual client checkboxes
+        // Individual ${this.config.filterKey || 'client'} checkboxes
         this.clientCheckboxes = [];
         this.availableClients.forEach(client => {
             const clientDiv = checkboxContainer.createEl('div', { cls: 'setting-item' });
@@ -147,13 +148,13 @@ export class CampaignModal extends Modal {
             clientToggle.addEventListener('change', (e) => {
                 const target = e.target as HTMLInputElement;
                 if (target.checked) {
-                    // Add client to selection and remove "all" if it was selected
+                    // Add ${this.config.filterKey || 'client'} to selection and remove "all" if it was selected
                     this.config.selectedClients = this.config.selectedClients?.filter(c => c !== 'all') || [];
                     this.config.selectedClients.push(client);
                     allClientsToggle.checked = false;
                     this.updateClientCheckboxes();
                 } else {
-                    // Remove client from selection
+                    // Remove ${this.config.filterKey || 'client'} from selection
                     this.config.selectedClients = this.config.selectedClients?.filter(c => c !== client) || [];
                     this.updateClientCheckboxes();
                 }
@@ -179,7 +180,7 @@ export class CampaignModal extends Modal {
         // Info about recipients
         const infoEl = contentEl.createEl('div', { 
             cls: 'setting-item-description',
-            text: `ℹ️ This campaign will be sent to contacts in your Plunk account${this.config.selectedClients && this.config.selectedClients.length > 0 && !this.config.selectedClients.includes('all') ? ` from clients: ${this.config.selectedClients.join(', ')}` : ''}.`
+            text: `ℹ️ This campaign will be sent to contacts in your Plunk account${this.config.selectedClients && this.config.selectedClients.length > 0 && !this.config.selectedClients.includes('all') ? ` from ${this.config.filterKey || 'client'}s: ${this.config.selectedClients.join(', ')}` : ''}.`
         });
         infoEl.style.color = 'var(--text-muted)';
         infoEl.style.fontStyle = 'italic';
@@ -221,7 +222,7 @@ export class CampaignModal extends Modal {
         }
 
         try {
-            // Save selected clients, subject, and title to frontmatter before creating campaign
+            // Save selected ${this.config.filterKey || 'client'}s, subject, and title to frontmatter before creating campaign
             this.saveCampaignPropertiesToFrontmatter();
             
             // Use the updated content that now includes all properties in frontmatter

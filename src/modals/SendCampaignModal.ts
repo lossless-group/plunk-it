@@ -11,6 +11,7 @@ export class SendCampaignModal extends Modal {
         subscribedOnly: boolean;
         selectedClients: string[];
         backlinkUrlBase: string;
+        filterKey: string;
     };
     private onSubmit: (result: { success: boolean; message: string; campaignId?: string }) => void;
     private plugin: any; // Will be the main plugin instance
@@ -39,7 +40,8 @@ export class SendCampaignModal extends Modal {
             updateRecipients: true,
             subscribedOnly: frontmatter?.subscribedOnly ?? false,
             selectedClients: this.getSelectedClientsFromFrontmatter(frontmatter) || ['all'],
-            backlinkUrlBase: this.plugin.settings.backlinkUrlBase || ''
+            backlinkUrlBase: this.plugin.settings.backlinkUrlBase || '',
+            filterKey: this.plugin.settings.filterKey || 'client'
         };
     }
 
@@ -140,17 +142,17 @@ export class SendCampaignModal extends Modal {
         try {
             // If update recipients is enabled, update the campaign first
             if (this.config.updateRecipients) {
-                // Get all contacts for recipients (filtered by subscribed status and clients if requested)
-                const recipients = await this.emailService.getAllContacts(this.config.apiToken, this.config.subscribedOnly, this.config.selectedClients || []);
+                // Get all contacts for recipients (filtered by subscribed status and ${this.config.filterKey || 'client'}s if requested)
+                const recipients = await this.emailService.getAllContacts(this.config.apiToken, this.config.subscribedOnly, this.config.selectedClients || [], this.config.filterKey);
                 
                 if (recipients.length === 0) {
                     let filterText = '';
                     if (this.config.subscribedOnly) {
                         filterText += 'subscribed ';
                     }
-                    if (this.config.selectedClients && this.config.selectedClients.length > 0 && !this.config.selectedClients.includes('all')) {
-                        filterText += `from clients: ${this.config.selectedClients.join(', ')} `;
-                    }
+                                if (this.config.selectedClients && this.config.selectedClients.length > 0 && !this.config.selectedClients.includes('all')) {
+                filterText += `from ${this.config.filterKey || 'client'}s: ${this.config.selectedClients.join(', ')} `;
+            }
                     this.onSubmit({ success: false, message: `No ${filterText}contacts found. Please add some contacts to your Plunk account first.` });
                     return;
                 }
@@ -203,7 +205,7 @@ export class SendCampaignModal extends Modal {
         }
         
         if (this.config.selectedClients && this.config.selectedClients.length > 0 && !this.config.selectedClients.includes('all')) {
-            filters.push(`clients: ${this.config.selectedClients.join(', ')}`);
+            filters.push(`${this.config.filterKey || 'client'}s: ${this.config.selectedClients.join(', ')}`);
         }
         
         if (filters.length === 0) {

@@ -157,7 +157,8 @@ export default class PlunkItPlugin extends Plugin {
     async loadSettings() {
         this.settings = Object.assign({}, {
             plunkApiToken: '',
-            backlinkUrlBase: ''
+            backlinkUrlBase: '',
+            filterKey: 'client'
         }, await this.loadData());
     }
 

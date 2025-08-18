@@ -38,5 +38,17 @@ export class SettingsTab extends PluginSettingTab {
                     this.plugin.settings.backlinkUrlBase = value;
                     await this.plugin.saveSettings();
                 }));
+
+        // Filter Key setting
+        new Setting(containerEl)
+            .setName('Contact Filter Key')
+            .setDesc('The key used to filter contacts in Plunk. This should match the key in your contact metadata (e.g., "client", "company", "team")')
+            .addText(text => text
+                .setPlaceholder('client')
+                .setValue(this.plugin.settings.filterKey)
+                .onChange(async (value) => {
+                    this.plugin.settings.filterKey = value;
+                    await this.plugin.saveSettings();
+                }));
     }
 }

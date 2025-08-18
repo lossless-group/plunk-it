@@ -10,6 +10,7 @@ export interface EmailConfig {
     apiToken: string;
     backlinkUrlBase?: string;
     style?: string;
+    filterKey?: string;
 }
 
 export interface FrontmatterData {
@@ -37,6 +38,7 @@ export interface CampaignConfig {
     style?: string;
     selectedClients?: string[];
     backlinkUrlBase?: string;
+    filterKey?: string;
 }
 
 export interface UpdateCampaignConfig {
@@ -49,6 +51,7 @@ export interface UpdateCampaignConfig {
     subscribedOnly?: boolean;
     selectedClients?: string[];
     backlinkUrlBase?: string;
+    filterKey?: string;
 }
 
 export interface CampaignResult {
@@ -161,7 +164,7 @@ export class EmailService {
             const encodedLink = encodeURIComponent(match);
             
             // Construct the URL
-            const url = `${backlinkUrlBase}/backlink?query=${encodedLink}`;
+            const url = `${backlinkUrlBase}${encodedLink}`;
             
             // Return as markdown link
             return `[${displayText}](${url})`;
@@ -244,7 +247,7 @@ export class EmailService {
     /**
      * Get all contacts from Plunk API
      */
-    async getAllContacts(apiToken: string, subscribedOnly: boolean = false, selectedClients?: string[]): Promise<string[]> {
+    async getAllContacts(apiToken: string, subscribedOnly: boolean = false, selectedClients?: string[], filterKey: string = 'client'): Promise<string[]> {
         try {
             const response = await fetch('https://api.useplunk.com/v1/contacts', {
                 method: 'GET',
@@ -271,18 +274,18 @@ export class EmailService {
                 console.log(`Filtered to ${contacts.length} subscribed contacts out of ${data.length} total`);
             }
 
-            // Filter contacts based on selected clients if specified
+            // Filter contacts based on selected ${filterKey}s if specified
             if (selectedClients && selectedClients.length > 0 && !selectedClients.includes('all')) {
                 contacts = contacts.filter((contact: Contact) => {
                     try {
                         const contactData = contact.data ? JSON.parse(contact.data) : {};
-                        return selectedClients.includes(contactData.client);
+                        return selectedClients.includes(contactData[filterKey]);
                     } catch (error) {
                         console.error('Error parsing contact data:', error);
                         return false;
                     }
                 });
-                console.log(`Filtered to ${contacts.length} contacts for clients: ${selectedClients.join(', ')}`);
+                console.log(`Filtered to ${contacts.length} contacts for ${filterKey}s: ${selectedClients.join(', ')}`);
             }
 
             return contacts.map((contact: Contact) => contact.id).filter(Boolean);
@@ -293,9 +296,9 @@ export class EmailService {
     }
 
     /**
-     * Get unique client names from contacts
+     * Get unique ${filterKey} names from contacts
      */
-    async getUniqueClients(apiToken: string): Promise<string[]> {
+    async getUniqueClients(apiToken: string, filterKey: string = 'client'): Promise<string[]> {
         try {
             const response = await fetch('https://api.useplunk.com/v1/contacts', {
                 method: 'GET',
@@ -312,14 +315,14 @@ export class EmailService {
 
             const data = await response.json();
             
-            // Extract unique client names
+            // Extract unique ${filterKey} names
             const clients = new Set<string>();
             data.forEach((contact: Contact) => {
                 try {
                     const contactData = contact.data ? JSON.parse(contact.data) : {};
-                    if (contactData.client) {
-                        console.log("Extracting client", contactData.client);
-                        clients.add(contactData.client);
+                    if (contactData[filterKey]) {
+                        console.log(`Extracting ${filterKey}`, contactData[filterKey]);
+                        clients.add(contactData[filterKey]);
                     }
                 } catch (error) {
                     console.error('Error parsing contact data:', error);
@@ -345,7 +348,7 @@ export class EmailService {
             const htmlBody = this.markdownToHtml(body, config.backlinkUrlBase);
             
             // Get all contacts
-            const recipients = await this.getAllContacts(config.apiToken, config.subscribedOnly, config.selectedClients);
+            const recipients = await this.getAllContacts(config.apiToken, config.subscribedOnly, config.selectedClients, config.filterKey);
             
             if (recipients.length === 0) {
                 return {
@@ -388,7 +391,8 @@ export class EmailService {
                 filterText += 'subscribed ';
             }
             if (config.selectedClients && config.selectedClients.length > 0 && !config.selectedClients.includes('all')) {
-                filterText += `from clients: ${config.selectedClients.join(', ')} `;
+                const filterKeyName = config.filterKey || 'client';
+                filterText += `from ${filterKeyName}s: ${config.selectedClients.join(', ')} `;
             }
             
             return {
@@ -455,7 +459,8 @@ export class EmailService {
                 filterText += 'subscribed ';
             }
             if (config.selectedClients && config.selectedClients.length > 0 && !config.selectedClients.includes('all')) {
-                filterText += `from clients: ${config.selectedClients.join(', ')} `;
+                const filterKeyName = config.filterKey || 'client';
+                filterText += `from ${filterKeyName}s: ${config.selectedClients.join(', ')} `;
             }
             
             return {
