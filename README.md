@@ -160,6 +160,6 @@ pnpm dev
 - **marked**: For Markdown to HTML conversion
 - **Obsidian API**: For plugin integration and file management
 
-## License
+## Contact
 
-The Unlicense
+For any inquiries, contact `dev@tanuj.xyz`
