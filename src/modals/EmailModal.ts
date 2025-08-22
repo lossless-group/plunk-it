@@ -36,6 +36,15 @@ export class EmailModal extends Modal {
         const { contentEl } = this;
         contentEl.createEl('h2', { text: 'Send Individual Email' });
 
+        // Note about individual email styling
+        const noteEl = contentEl.createEl('div', { 
+            cls: 'setting-item-description',
+            text: 'ℹ️ Individual emails are sent as plain text and are not markdown styled like Campaigns.'
+        });
+        noteEl.style.color = 'var(--text-muted)';
+        noteEl.style.fontStyle = 'italic';
+        noteEl.style.marginBottom = '16px';
+
         // Show warning if API token is not configured
         if (!this.config.apiToken) {
             const warningEl = contentEl.createEl('div', { 

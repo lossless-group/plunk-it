@@ -18,7 +18,7 @@
 		"Plunk"
 	],
 	"author": "The Lossless Group",
-	"license": "The Unlicense",
+	"license": "MIT",
 	"devDependencies": {
 		"@eslint/plugin-kit": "^0.3.3",
 		"@types/node": "^24.0.12",
