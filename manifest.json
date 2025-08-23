@@ -3,7 +3,7 @@
 	"name": "Plunk It",
 	"version": "1.0.0",
 	"minAppVersion": "1.8.10",
-	"description": "Send emails and create campaigns directly from Obsidian using Plunk API with seamless frontmatter integration and advanced contact filtering",
+	"description": "Send emails and create campaigns using the Plunk API with seamless frontmatter integration and advanced contact filtering",
 	"author": "The Lossless Group",
 	"authorUrl": "https://lossless.group",
 	"fundingUrl": "https://lossless.group",
