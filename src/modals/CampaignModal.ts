@@ -44,12 +44,10 @@ export class CampaignModal extends Modal {
 
         // Show warning if API token is not configured
         if (!this.config.apiToken) {
-            const warningEl = contentEl.createEl('div', { 
-                cls: 'setting-item-description',
+            contentEl.createEl('div', { 
+                cls: 'setting-item-description warning',
                 text: '⚠️ Please configure your Plunk API token in the plugin settings first.'
             });
-            warningEl.style.color = 'var(--text-error)';
-            warningEl.style.fontWeight = 'bold';
         }
 
         // Load available ${this.config.filterKey || 'client'}s if API token is configured
@@ -61,8 +59,6 @@ export class CampaignModal extends Modal {
                 this.availableClients = [];
             }
         }
-
-
 
         // Subject setting
         new Setting(contentEl)
@@ -178,19 +174,13 @@ export class CampaignModal extends Modal {
             });
 
         // Info about recipients
-        const infoEl = contentEl.createEl('div', { 
-            cls: 'setting-item-description',
+        contentEl.createEl('div', { 
+            cls: 'setting-item-description info',
             text: `ℹ️ This campaign will be sent to contacts in your Plunk account${this.config.selectedClients && this.config.selectedClients.length > 0 && !this.config.selectedClients.includes('all') ? ` from ${this.config.filterKey || 'client'}s: ${this.config.selectedClients.join(', ')}` : ''}.`
         });
-        infoEl.style.color = 'var(--text-muted)';
-        infoEl.style.fontStyle = 'italic';
 
         // Buttons
         const buttonContainer = contentEl.createEl('div', { cls: 'campaign-modal-buttons' });
-        buttonContainer.style.display = 'flex';
-        buttonContainer.style.gap = '8px';
-        buttonContainer.style.marginTop = '20px';
-        buttonContainer.style.justifyContent = 'flex-end';
         
         buttonContainer.createEl('button', {
             text: 'Cancel',
@@ -206,8 +196,6 @@ export class CampaignModal extends Modal {
             await this.createCampaign();
         });
     }
-
-
 
     private async createCampaign() {
         // Validate required fields
@@ -258,8 +246,6 @@ export class CampaignModal extends Modal {
         }
         return ['all'];
     }
-
-
 
     private saveCampaignPropertiesToFrontmatter() {
         // Prepare properties to save to frontmatter

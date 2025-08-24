@@ -56,22 +56,18 @@ export class UpdateCampaignModal extends Modal {
 
         // Show warning if API token is not configured
         if (!this.config.apiToken) {
-            const warningEl = contentEl.createEl('div', { 
-                cls: 'setting-item-description',
+            contentEl.createEl('div', { 
+                cls: 'setting-item-description warning',
                 text: '⚠️ Please configure your Plunk API token in the plugin settings first.'
             });
-            warningEl.style.color = 'var(--text-error)';
-            warningEl.style.fontWeight = 'bold';
         }
 
         // Show warning if no campaign ID found
         if (!this.config.id) {
-            const warningEl = contentEl.createEl('div', { 
-                cls: 'setting-item-description',
+            contentEl.createEl('div', { 
+                cls: 'setting-item-description warning',
                 text: '⚠️ No campaign ID found in frontmatter. Please create a campaign first.'
             });
-            warningEl.style.color = 'var(--text-error)';
-            warningEl.style.fontWeight = 'bold';
         }
 
         // Campaign ID display (read-only)
@@ -130,7 +126,7 @@ export class UpdateCampaignModal extends Modal {
         nameDescriptionContainer.style.flexDirection = 'column';
         nameDescriptionContainer.style.gap = '4px';
         
-                nameDescriptionContainer.createEl('div', {
+        nameDescriptionContainer.createEl('div', {
             cls: 'setting-item-name',
             text: `${this.config.filterKey || 'Client'} Filter`
         });
@@ -197,19 +193,13 @@ export class UpdateCampaignModal extends Modal {
         });
 
         // Info about recipients
-        const infoEl = contentEl.createEl('div', { 
-            cls: 'setting-item-description',
+        contentEl.createEl('div', { 
+            cls: 'setting-item-description info',
             text: `ℹ️ This campaign will be updated with the new content and settings${this.config.selectedClients && this.config.selectedClients.length > 0 && !this.config.selectedClients.includes('all') ? ` and sent to contacts from ${this.config.filterKey || 'client'}s: ${this.config.selectedClients.join(', ')}` : ''}.`
         });
-        infoEl.style.color = 'var(--text-muted)';
-        infoEl.style.fontStyle = 'italic';
 
         // Buttons
         const buttonContainer = contentEl.createEl('div', { cls: 'campaign-modal-buttons' });
-        buttonContainer.style.display = 'flex';
-        buttonContainer.style.gap = '8px';
-        buttonContainer.style.marginTop = '20px';
-        buttonContainer.style.justifyContent = 'flex-end';
         
         buttonContainer.createEl('button', {
             text: 'Cancel',
@@ -300,17 +290,6 @@ export class UpdateCampaignModal extends Modal {
         }
         return ['all'];
     }
-
-    // private saveSelectedClientsToFrontmatter(selectedClients: string[]) {
-    //     // Update the content with the new selected clients in frontmatter
-    //     this.content = this.emailService.updateFrontmatterWithSelectedClients(this.content, selectedClients);
-        
-    //     // Update the current file in Obsidian
-    //     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    //     if (activeView && activeView.file) {
-    //         this.app.vault.modify(activeView.file, this.content);
-    //     }
-    // }
 
     private saveCampaignPropertiesToFrontmatter() {
         // Prepare properties to save to frontmatter

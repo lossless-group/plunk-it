@@ -5,6 +5,7 @@ import { UpdateCampaignModal } from './src/modals/UpdateCampaignModal';
 import { SendCampaignModal } from './src/modals/SendCampaignModal';
 import { SettingsTab } from './src/settings/SettingsTab';
 import { PluginSettings } from './src/types';
+import './src/styles/modals.css';
 
 export default class PlunkItPlugin extends Plugin {
     settings!: PluginSettings;
@@ -16,15 +17,8 @@ export default class PlunkItPlugin extends Plugin {
         // Add settings tab
         this.addSettingTab(new SettingsTab(this.app, this));
         
-        // Load CSS
-        this.loadStyles();
-        
         // Register commands
         this.registerCommands();
-    }
-    
-    private loadStyles() {
-        console.log('Plunk-it plugin styles loaded');
     }
 
     private registerCommands(): void {

@@ -16,7 +16,6 @@ export class SendCampaignModal extends Modal {
     private onSubmit: (result: { success: boolean; message: string; campaignId?: string }) => void;
     private plugin: any; // Will be the main plugin instance
 
-
     constructor(
         app: App, 
         content: string, 
@@ -51,22 +50,18 @@ export class SendCampaignModal extends Modal {
 
         // Show warning if API token is not configured
         if (!this.config.apiToken) {
-            const warningEl = contentEl.createEl('div', { 
-                cls: 'setting-item-description',
+            contentEl.createEl('div', { 
+                cls: 'setting-item-description warning',
                 text: '⚠️ Please configure your Plunk API token in the plugin settings first.'
             });
-            warningEl.style.color = 'var(--text-error)';
-            warningEl.style.fontWeight = 'bold';
         }
 
         // Show warning if no campaign ID found
         if (!this.config.campaignId) {
-            const warningEl = contentEl.createEl('div', { 
-                cls: 'setting-item-description',
+            contentEl.createEl('div', { 
+                cls: 'setting-item-description warning',
                 text: '⚠️ No campaign ID found in frontmatter. Please create a campaign first.'
             });
-            warningEl.style.color = 'var(--text-error)';
-            warningEl.style.fontWeight = 'bold';
         }
 
         // Campaign ID display (read-only)
@@ -90,28 +85,19 @@ export class SendCampaignModal extends Modal {
             });
 
         // Show current filters info
-        const filtersInfoEl = contentEl.createEl('div', { 
-            cls: 'setting-item-description',
+        contentEl.createEl('div', { 
+            cls: 'setting-item-description info margin-top',
             text: this.getFiltersInfoText()
         });
-        filtersInfoEl.style.color = 'var(--text-muted)';
-        filtersInfoEl.style.fontStyle = 'italic';
-        filtersInfoEl.style.marginTop = '8px';
 
         // Info about sending
-        const infoEl = contentEl.createEl('div', { 
-            cls: 'setting-item-description',
+        contentEl.createEl('div', { 
+            cls: 'setting-item-description info',
             text: 'ℹ️ This will send the campaign immediately to all recipients.'
         });
-        infoEl.style.color = 'var(--text-muted)';
-        infoEl.style.fontStyle = 'italic';
 
         // Buttons
         const buttonContainer = contentEl.createEl('div', { cls: 'campaign-modal-buttons' });
-        buttonContainer.style.display = 'flex';
-        buttonContainer.style.gap = '8px';
-        buttonContainer.style.marginTop = '20px';
-        buttonContainer.style.justifyContent = 'flex-end';
         
         buttonContainer.createEl('button', {
             text: 'Cancel',

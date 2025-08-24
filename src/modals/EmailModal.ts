@@ -37,22 +37,17 @@ export class EmailModal extends Modal {
         contentEl.createEl('h2', { text: 'Send Individual Email' });
 
         // Note about individual email styling
-        const noteEl = contentEl.createEl('div', { 
-            cls: 'setting-item-description',
+        contentEl.createEl('div', { 
+            cls: 'setting-item-description note',
             text: 'ℹ️ Individual emails are sent as plain text and are not markdown styled like Campaigns.'
         });
-        noteEl.style.color = 'var(--text-muted)';
-        noteEl.style.fontStyle = 'italic';
-        noteEl.style.marginBottom = '16px';
 
         // Show warning if API token is not configured
         if (!this.config.apiToken) {
-            const warningEl = contentEl.createEl('div', { 
-                cls: 'setting-item-description',
+            contentEl.createEl('div', { 
+                cls: 'setting-item-description warning',
                 text: '⚠️ Please configure your Plunk API token in the plugin settings first.'
             });
-            warningEl.style.color = 'var(--text-error)';
-            warningEl.style.fontWeight = 'bold';
         }
 
         // Recipient setting
@@ -78,8 +73,6 @@ export class EmailModal extends Modal {
                         this.config.subject = value;
                     });
             });
-
-
 
         // Sender name setting
         new Setting(contentEl)
@@ -121,10 +114,6 @@ export class EmailModal extends Modal {
 
         // Buttons
         const buttonContainer = contentEl.createEl('div', { cls: 'email-modal-buttons' });
-        buttonContainer.style.display = 'flex';
-        buttonContainer.style.gap = '8px';
-        buttonContainer.style.marginTop = '20px';
-        buttonContainer.style.justifyContent = 'flex-end';
         
         buttonContainer.createEl('button', {
             text: 'Cancel',
@@ -140,8 +129,6 @@ export class EmailModal extends Modal {
             await this.sendEmail();
         });
     }
-
-
 
     private async sendEmail() {
         // Validate required fields

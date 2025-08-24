@@ -27,7 +27,8 @@ const external = [
   ...builtins
 ];
 
-const context = await esbuild.context({
+// Create separate build contexts for JS and CSS
+const jsContext = await esbuild.context({
   banner: {
     js: banner,
   },
@@ -45,15 +46,30 @@ const context = await esbuild.context({
   },
   logLevel: 'info',
   outfile: 'main.js',
-  loader: { '.css': 'text' },
+});
+
+const cssContext = await esbuild.context({
+  entryPoints: ['src/styles/modals.css'],
+  bundle: true,
+  sourcemap: !isProduction ? 'inline' : false,
+  minify: isProduction,
+  logLevel: 'info',
+  outfile: 'styles.css',
+  loader: { '.css': 'css' },
 });
 
 if (isProduction) {
-  // Build only for production
-  await context.rebuild();
+  // Build both JS and CSS for production
+  await Promise.all([
+    jsContext.rebuild(),
+    cssContext.rebuild()
+  ]);
   process.exit(0);
 } else {
-  // Enable watch mode for development
-  await context.watch();
-  console.log('Watching for changes...');
+  // Enable watch mode for both JS and CSS in development
+  await Promise.all([
+    jsContext.watch(),
+    cssContext.watch()
+  ]);
+  console.log('Watching for changes in JS and CSS...');
 }

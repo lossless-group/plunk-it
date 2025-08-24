@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import { requestUrl } from 'obsidian';
 
 export interface EmailConfig {
     to: string; // Single email address (will be converted to array for API)
@@ -210,8 +211,9 @@ export class EmailService {
 
             console.log("Sending transcational email with data", emailData);
 
-            // Make API request - exactly as specified
-            const response = await fetch(this.PLUNK_API_URL, {
+            // Make API request using Obsidian's requestUrl
+            const response = await requestUrl({
+                url: this.PLUNK_API_URL,
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -220,12 +222,12 @@ export class EmailService {
                 body: JSON.stringify(emailData)
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+            if (response.status !== 200) {
+                const errorData = await response.json;
+                throw new Error(`API request failed: ${response.status} - ${errorData.message || 'Unknown error'}`);
             }
 
-            const data = await response.json();
+            const data = await response.json;
             
             return {
                 success: true,
@@ -249,7 +251,8 @@ export class EmailService {
      */
     async getAllContacts(apiToken: string, subscribedOnly: boolean = false, selectedClients?: string[], filterKey: string = 'client'): Promise<string[]> {
         try {
-            const response = await fetch('https://api.useplunk.com/v1/contacts', {
+            const response = await requestUrl({
+                url: 'https://api.useplunk.com/v1/contacts',
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -257,12 +260,12 @@ export class EmailService {
                 }
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`Failed to fetch contacts: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+            if (response.status !== 200) {
+                const errorData = await response.json;
+                throw new Error(`Failed to fetch contacts: ${response.status} - ${errorData.message || 'Unknown error'}`);
             }
 
-            const data = await response.json();
+            const data = await response.json;
             
             // Extract contact emails from the response
             console.log("Received contacts:", data);
@@ -300,7 +303,8 @@ export class EmailService {
      */
     async getUniqueClients(apiToken: string, filterKey: string = 'client'): Promise<string[]> {
         try {
-            const response = await fetch('https://api.useplunk.com/v1/contacts', {
+            const response = await requestUrl({
+                url: 'https://api.useplunk.com/v1/contacts',
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -308,12 +312,12 @@ export class EmailService {
                 }
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`Failed to fetch contacts: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+            if (response.status !== 200) {
+                const errorData = await response.json;
+                throw new Error(`Failed to fetch contacts: ${response.status} - ${errorData.message || 'Unknown error'}`);
             }
 
-            const data = await response.json();
+            const data = await response.json;
             
             // Extract unique ${filterKey} names
             const clients = new Set<string>();
@@ -370,7 +374,8 @@ export class EmailService {
             });
 
             // Make API request to create campaign
-            const response = await fetch(this.PLUNK_CAMPAIGN_URL, {
+            const response = await requestUrl({
+                url: this.PLUNK_CAMPAIGN_URL,
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -379,12 +384,12 @@ export class EmailService {
                 body: JSON.stringify(campaignData)
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`Campaign creation failed: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+            if (response.status !== 200) {
+                const errorData = await response.json;
+                throw new Error(`Campaign creation failed: ${response.status} - ${errorData.message || 'Unknown error'}`);
             }
 
-            const data = await response.json();
+            const data = await response.json;
             
             let filterText = '';
             if (config.subscribedOnly) {
@@ -438,7 +443,8 @@ export class EmailService {
             });
 
             // Make API request to update campaign
-            const response = await fetch(this.PLUNK_CAMPAIGN_URL, {
+            const response = await requestUrl({
+                url: this.PLUNK_CAMPAIGN_URL,
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -447,12 +453,12 @@ export class EmailService {
                 body: JSON.stringify(campaignData)
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`Campaign update failed: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+            if (response.status !== 200) {
+                const errorData = await response.json;
+                throw new Error(`Campaign update failed: ${response.status} - ${errorData.message || 'Unknown error'}`);
             }
 
-            const data = await response.json();
+            const data = await response.json;
             
             let filterText = '';
             if (config.subscribedOnly) {
@@ -507,7 +513,8 @@ export class EmailService {
             };
 
             // Make API request to send campaign
-            const response = await fetch('https://api.useplunk.com/v1/campaigns/send', {
+            const response = await requestUrl({
+                url: 'https://api.useplunk.com/v1/campaigns/send',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -516,12 +523,12 @@ export class EmailService {
                 body: JSON.stringify(sendData)
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`Campaign sending failed: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+            if (response.status !== 200) {
+                const errorData = await response.json;
+                throw new Error(`Campaign sending failed: ${response.status} - ${errorData.message || 'Unknown error'}`);
             }
 
-            const data = await response.json();
+            const data = await response.json;
             
             return {
                 success: true,
@@ -658,6 +665,4 @@ export class EmailService {
         const { frontmatter } = this.extractFrontmatter(content);
         return frontmatter?.email || '';
     }
-
-
 }
