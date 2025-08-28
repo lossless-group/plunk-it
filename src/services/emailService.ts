@@ -175,13 +175,14 @@ export class EmailService {
     /**
      * Convert markdown to HTML
      */
-    private markdownToHtml(markdown: string, backlinkUrlBase?: string): string {
+    async markdownToHtml(markdown: string, backlinkUrlBase?: string): Promise<string> {
         try {
             // First convert backlinks to URLs
             const processedMarkdown = this.convertBacklinksToUrls(markdown, backlinkUrlBase);
             
-            // Then convert to HTML
-            return marked(processedMarkdown);
+            // Then convert to HTML (handle both string and Promise<string> return types)
+            const result = marked(processedMarkdown);
+            return typeof result === 'string' ? result : await result;
         } catch (error) {
             console.error('Error converting markdown to HTML:', error);
             return markdown;
@@ -197,7 +198,7 @@ export class EmailService {
             const { frontmatter, body } = this.extractFrontmatter(content);
             
             // Convert markdown body to HTML
-            const htmlBody = this.markdownToHtml(body, config.backlinkUrlBase);
+            const htmlBody = await this.markdownToHtml(body, config.backlinkUrlBase);
             
             // Prepare email data - Plunk API expects 'to' as an array
             const emailData = {
@@ -349,7 +350,7 @@ export class EmailService {
             const { body } = this.extractFrontmatter(content);
             
             // Convert markdown body to HTML
-            const htmlBody = this.markdownToHtml(body, config.backlinkUrlBase);
+            const htmlBody = await this.markdownToHtml(body, config.backlinkUrlBase);
             
             // Get all contacts
             const recipients = await this.getAllContacts(config.apiToken, config.subscribedOnly, config.selectedClients, config.filterKey);
@@ -427,7 +428,7 @@ export class EmailService {
             const { body } = this.extractFrontmatter(content);
             
             // Convert markdown body to HTML
-            const htmlBody = this.markdownToHtml(body, config.backlinkUrlBase);
+            const htmlBody = await this.markdownToHtml(body, config.backlinkUrlBase);
             
             // Prepare campaign update data according to Plunk API specification
             const campaignData = {

@@ -4,11 +4,11 @@ import { CampaignModal } from './src/modals/CampaignModal';
 import { UpdateCampaignModal } from './src/modals/UpdateCampaignModal';
 import { SendCampaignModal } from './src/modals/SendCampaignModal';
 import { SettingsTab } from './src/settings/SettingsTab';
-import { PluginSettings } from './src/types';
+import { PlunkItSettings } from './src/types';
 import './src/styles/modals.css';
 
 export default class PlunkItPlugin extends Plugin {
-    settings!: PluginSettings;
+    settings!: PlunkItSettings;
 
     async onload(): Promise<void> {
         // Load settings

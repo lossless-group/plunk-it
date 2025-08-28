@@ -33,9 +33,9 @@ export class SettingsTab extends PluginSettingTab {
             .setDesc('Base URL for converting Obsidian backlinks to clickable links in emails (e.g., https://myurl.com)')
             .addText(text => text
                 .setPlaceholder('https://myurl.com')
-                .setValue(this.plugin.settings.backlinkUrlBase)
+                .setValue(this.plugin.settings.backlinkUrlBase || '')
                 .onChange(async (value) => {
-                    this.plugin.settings.backlinkUrlBase = value;
+                    this.plugin.settings.backlinkUrlBase = value || undefined;
                     await this.plugin.saveSettings();
                 }));
 
@@ -45,9 +45,9 @@ export class SettingsTab extends PluginSettingTab {
             .setDesc('The key used to filter contacts in Plunk. This should match the key in your contact metadata (e.g., "client", "company", "team")')
             .addText(text => text
                 .setPlaceholder('client')
-                .setValue(this.plugin.settings.filterKey)
+                .setValue(this.plugin.settings.filterKey || '')
                 .onChange(async (value) => {
-                    this.plugin.settings.filterKey = value;
+                    this.plugin.settings.filterKey = value || undefined;
                     await this.plugin.saveSettings();
                 }));
     }

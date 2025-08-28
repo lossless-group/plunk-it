@@ -9,6 +9,8 @@
     "lib": ["ES2022", "DOM"],
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "types": [],
+    "typeRoots": ["./node_modules/@types"],
 
     /* Strict Type-Checking */
     "strict": true,
@@ -44,7 +46,9 @@
 
     /* Paths */
     "paths": {
-      "*": ["node_modules/*"]
+      "obsidian": ["node_modules/obsidian/obsidian.d.ts"],
+      "marked": ["src/types/marked.d.ts"],
+      "*": ["node_modules/*", "types/*"]
     }
   },
   "include": [
