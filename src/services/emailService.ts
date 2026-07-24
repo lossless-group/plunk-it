@@ -180,8 +180,10 @@ export class EmailService {
             // First convert backlinks to URLs
             const processedMarkdown = this.convertBacklinksToUrls(markdown, backlinkUrlBase);
             
-            // Then convert to HTML
-            return marked(processedMarkdown);
+            // Then convert to HTML (async: false pins the synchronous
+            // string return — marked v12+ types the bare call as
+            // string | Promise<string>)
+            return marked.parse(processedMarkdown, { async: false });
         } catch (error) {
             console.error('Error converting markdown to HTML:', error);
             return markdown;
